@@ -26,4 +26,4 @@ spec:
             id:
               column: order_id
             createdAt:
-              expression: "TIMESTAMP(created_at)"
+              expression: TIMESTAMP(created_at)

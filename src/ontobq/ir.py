@@ -16,12 +16,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
-class PropertyType(str, Enum):
+class PropertyType(Enum):
     """Semantic property types encoded by the v1alpha1 JSON Schema enum."""
 
     STRING = "string"

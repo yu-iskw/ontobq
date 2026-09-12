@@ -17,14 +17,12 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Mapping
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 from jsonschema import Draft202012Validator
-from jsonschema.exceptions import ValidationError
 
 from ontobq.diagnostics import (
     STRUCTURAL_ERROR_CODE,
@@ -47,6 +45,11 @@ from ontobq.ir import (
     RelationshipDefinition,
 )
 from ontobq.schema import load_v1alpha1_schema
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
+
+    from jsonschema.exceptions import ValidationError
 
 _JSON_SUFFIX = ".json"
 _YAML_SUFFIXES = {".yaml", ".yml"}
@@ -71,9 +74,10 @@ def parse_domain_file(path: Path) -> object:
 
 def structural_diagnostics(document: object) -> tuple[Diagnostic, ...]:
     """Return Draft 2020-12 structural diagnostics, ordered by path then message."""
+    instance: Any = document
     validator = Draft202012Validator(load_v1alpha1_schema())
     converted = [
-        _validation_error_to_diagnostic(error) for error in validator.iter_errors(document)
+        _validation_error_to_diagnostic(error) for error in validator.iter_errors(instance)
     ]
     converted.sort(key=lambda item: (item.path, item.message))
     return tuple(converted)

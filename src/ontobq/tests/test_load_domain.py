@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import pytest
+import pytest  # pyright: ignore[reportMissingImports]
 
 from ontobq import ColumnMapping, Domain, DomainLoadError, ExpressionMapping, load_domain
 from ontobq.tests.paths import EXAMPLES_DIR, FIXTURES_DIR

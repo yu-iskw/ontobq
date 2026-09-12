@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 
-class Severity(str, Enum):
+class Severity(Enum):
     """Diagnostic severity distinguishable without parsing ``message``."""
 
     ERROR = "error"

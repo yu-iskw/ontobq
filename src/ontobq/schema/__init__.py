@@ -17,7 +17,7 @@
 from __future__ import annotations
 
 import json
-from importlib.resources import files
+from pathlib import Path
 from typing import Any
 
 SCHEMA_RESOURCE = "v1alpha1.json"
@@ -28,6 +28,7 @@ KIND = "Domain"
 
 def load_v1alpha1_schema() -> dict[str, Any]:
     """Return the authoritative v1alpha1 JSON Schema document."""
-    payload = files(__name__).joinpath(SCHEMA_RESOURCE).read_text(encoding="utf-8")
+    schema_path = Path(__file__).resolve().parent / SCHEMA_RESOURCE
+    payload = schema_path.read_text(encoding="utf-8")
     loaded: dict[str, Any] = json.loads(payload)
     return loaded
