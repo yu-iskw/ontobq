@@ -13,16 +13,19 @@ exclude = [
   ".github",
   ".trunk",
   "dev",
-  "src/your_package/tests",
+  "src/ontobq/tests",
   "dist",
   ".python-version",
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/your_package"]
+packages = ["src/ontobq"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/ontobq/schema/v1alpha1.json" = "ontobq/schema/v1alpha1.json"
 
 [project]
-name = "your-package"
+name = "ontobq"
 version = "0.1.0"
 authors = [{ name = "yu-iskw" }]
 readme = "README.md"
@@ -45,13 +48,13 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Typing :: Typed",
 ]
-description = "A dbt artifacts parser in python"
-dependencies = []
+description = "Ontology-as-code compiler for BigQuery Property Graph"
+dependencies = ["jsonschema>=4.23.0", "pyyaml>=6.0.2"]
 
 [project.scripts]
 
 [tool.pytest.ini_options]
-testpaths = ["src/your_package/tests"]
+testpaths = ["src/ontobq/tests"]
 
 [dependency-groups]
 dev = [
@@ -64,6 +67,7 @@ dev = [
   "pylint>=3.3.5",
   "vulture>=2.16",
   "ssort>=0.16.0",
+  "types-PyYAML>=6.0.12",
 ]
 
 [tool.pyright]
@@ -77,12 +81,12 @@ reportMissingImports = true
 reportMissingTypeStubs = "warning"
 
 [tool.vulture]
-paths = ["src/your_package"]
+paths = ["src/ontobq"]
 min_confidence = 80
 
 [tool.coverage.run]
 branch = true
-source = ["src/your_package"]
+source = ["src/ontobq"]
 
 [tool.coverage.report]
 show_missing = true

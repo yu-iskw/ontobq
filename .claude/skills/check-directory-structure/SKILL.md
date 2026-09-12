@@ -19,16 +19,16 @@ Ground work in the **actual** on-disk layout and catch **flat or misplaced** out
 
 ## How to run
 
-Read **Architecture** and testing layout in [`AGENTS.md`](../../../AGENTS.md). Resolve the real package name from `pyproject.toml` / `src/` on disk (the template uses `your_package` until [`initialize-project`](../../../.claude/skills/initialize-project/SKILL.md) runs).
+Read **Architecture** and testing layout in [`AGENTS.md`](../../../AGENTS.md). Resolve the real package name from `pyproject.toml` / `src/` on disk (this repository uses `ontobq`).
 
-**Target directory:** By default, inspect the **current directory** (after `cd` to the repository root, that is the whole repo). To inspect only a subtree—for example a package or feature folder—set `TARGET` to that path (repo-relative or absolute). Examples: `TARGET=.` (same as root after `cd` to repo root), `TARGET=src/your_package`, `TARGET=dev`. Use the same `TARGET` in every command below.
+**Target directory:** By default, inspect the **current directory** (after `cd` to the repository root, that is the whole repo). To inspect only a subtree—for example a package or feature folder—set `TARGET` to that path (repo-relative or absolute). Examples: `TARGET=.` (same as root after `cd` to repo root), `TARGET=src/ontobq`, `TARGET=dev`. Use the same `TARGET` in every command below.
 
 ```bash
 # From repository root; inspect whole repo
 TARGET=.
 
 # Or inspect only a subtree (repo-relative or absolute path)
-TARGET=src/your_package
+TARGET=src/ontobq
 ```
 
 ### 1. Snapshot layout
@@ -63,7 +63,7 @@ If `TARGET` is not the repository root, map what you see back to the **full** re
 - **Tests** live under `src/<package>/tests/`; files match `test_*.py` (see [`AGENTS.md`](../../../AGENTS.md)).
 - **Dev scripts:** `dev/`; **CI:** `.github/workflows/`; **ADRs:** `docs/adr/` when used.
 
-If the tree still shows `your_package` but the project should use a real name, follow [`initialize-project`](../../../.claude/skills/initialize-project/SKILL.md).
+If the tree still shows `your_package` but the project should use a real name, follow [`initialize-project`](../../../.claude/skills/initialize-project/SKILL.md). This repository is already named `ontobq`.
 
 ### 3. Fix loop
 

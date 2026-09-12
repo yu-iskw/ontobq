@@ -12,9 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Template tests."""
+"""Packaged Draft 2020-12 schema for ontobq.dev/v1alpha1."""
+
+from __future__ import annotations
+
+import json
+from importlib.resources import files
+from typing import Any
+
+SCHEMA_RESOURCE = "v1alpha1.json"
+SCHEMA_ID = "https://ontobq.dev/schemas/v1alpha1.json"
+API_VERSION = "ontobq.dev/v1alpha1"
+KIND = "Domain"
 
 
-def test_dummy() -> None:
-    """Placeholder test; replace with real cases when the package grows."""
-    assert True
+def load_v1alpha1_schema() -> dict[str, Any]:
+    """Return the authoritative v1alpha1 JSON Schema document."""
+    payload = files(__name__).joinpath(SCHEMA_RESOURCE).read_text(encoding="utf-8")
+    loaded: dict[str, Any] = json.loads(payload)
+    return loaded

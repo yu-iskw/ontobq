@@ -5,7 +5,8 @@ on:
     paths:
       - .github/workflows/test.yml
       - pyproject.toml
-      - src/your_package/**/*.py
+      - src/ontobq/**
+      - examples/**
       - pylintrc
       - mise.toml
       - mise.lock
@@ -33,7 +34,7 @@ jobs:
       run:
         shell: bash
     env:
-      PYTHON_PACKAGE_NAME: YOUR_PYTHON_PACKAGE_NAME
+      PYTHON_PACKAGE_NAME: ontobq
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

@@ -37,7 +37,7 @@ Activate when the user says or implies:
 ### Example: Changes for next session
 
 - **Must:** Run `make lint` and `make test` from the repo root before claiming complete (per AGENTS.md).
-- **Should:** Read `README.md` and the touched package under `src/your_package/` before large edits.
+- **Should:** Read `README.md` and the touched package under `src/ontobq/` before large edits.
 - **Consider:** Delegate broad codebase search when the question spans many directories.
 
 ### Example: Suggested documentation or skill updates

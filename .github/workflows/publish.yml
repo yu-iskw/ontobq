@@ -16,8 +16,8 @@ jobs:
       run:
         shell: bash
     env:
-      PYTHON_PACKAGE_NAME: YOUR_PYTHON_PACKAGE_NAME
-      PYTHON_NAME_SPACE: YOUR_PYTHON_NAME_SPACE
+      PYTHON_PACKAGE_NAME: ontobq
+      PYTHON_NAME_SPACE: ontobq
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -48,8 +48,8 @@ jobs:
       run:
         shell: bash
     env:
-      PYTHON_PACKAGE_NAME: YOUR_PYTHON_PACKAGE_NAME
-      PYTHON_NAME_SPACE: YOUR_PYTHON_NAME_SPACE
+      PYTHON_PACKAGE_NAME: ontobq
+      PYTHON_NAME_SPACE: ontobq
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -67,4 +67,4 @@ jobs:
           python3 -m pip install -U "${PYTHON_PACKAGE_NAME}"
       - name: Test package
         run: |
-          uv run python -m "${PYTHON_NAME_SPACE}"
+          python -c "import ${PYTHON_NAME_SPACE}"

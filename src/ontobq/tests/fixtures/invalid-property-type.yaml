@@ -1,0 +1,24 @@
+apiVersion: ontobq.dev/v1alpha1
+kind: Domain
+
+metadata:
+  name: commerce
+
+spec:
+  bigquery:
+    project: my-project
+    dataset: semantic
+    graph: commerce_graph
+
+  entities:
+    Customer:
+      key: [id]
+      properties:
+        id:
+          type: uuid
+      mapping:
+        bigquery:
+          source: my-project.raw.customers
+          properties:
+            id:
+              column: customer_id

@@ -1,10 +1,10 @@
-# Python Package Template — project instructions
+# OntoBQ — project instructions
 
 Authoritative shared instructions for humans and coding agents. How each product loads this repo: [Coding agents & instruction files](#coding-agents--instruction-files).
 
 ## Project overview
 
-Python package template. Tooling:
+OntoBQ compiles ontology-as-code Domain documents to BigQuery Property Graph. Tooling:
 
 - **Package manager**: [uv](https://github.com/astral-sh/uv) (via `requirements.setup.txt`, not mise)
 - **CLI toolchain**: [mise](https://mise.jdx.dev/) — Trunk, Trivy, OSV-Scanner, Grype, CodeQL (`mise.toml` [tasks], `mise.lock`, `minimum_release_age = "7d"`)
@@ -48,7 +48,7 @@ make clean        # Clean build artifacts
 
 ## Testing
 
-- Tests live under `src/your_package/tests/` (colocated with the package)
+- Tests live under `src/ontobq/tests/` (colocated with the package)
 - Test files must match `test_*.py`
 - Run `make test` before commits
 - Aim for meaningful coverage on critical paths
@@ -85,7 +85,7 @@ make clean        # Clean build artifacts
 
 ## Architecture
 
-- Package source: `src/your_package/` (rename when initializing a real project)
+- Package source: `src/ontobq/`
 - Dev scripts: `dev/`
 - CI/CD: `.github/workflows/`
 - **Claude Code** automation: [`.claude/`](.claude/) — see [CLAUDE.md](CLAUDE.md) for how Claude loads this repo and the directory layout
