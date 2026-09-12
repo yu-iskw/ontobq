@@ -64,9 +64,7 @@ def compile_property_graph(
     if not graph_name:
         raise ValueError("missing spec.bigquery.graph")
     index = _artifact_index(mapping_view_artifacts)
-    nodes = tuple(
-        _render_node(name, entity, index) for name, entity in domain.entities.items()
-    )
+    nodes = tuple(_render_node(name, entity, index) for name, entity in domain.entities.items())
     edges = tuple(
         _render_edge(domain, name, relationship, index)
         for name, relationship in domain.relationships.items()
@@ -115,9 +113,7 @@ def _dependency_names(
     return entities + relationships
 
 
-def _render_graph_sql(
-    qualified_name: str, nodes: tuple[str, ...], edges: tuple[str, ...]
-) -> str:
+def _render_graph_sql(qualified_name: str, nodes: tuple[str, ...], edges: tuple[str, ...]) -> str:
     parts = [
         "CREATE OR REPLACE PROPERTY GRAPH ",
         _quote_resource(qualified_name),
@@ -158,12 +154,8 @@ def _render_edge(
         _TABLE_INDENT + _quote_resource(artifact.qualified_name),
         _CLAUSE_INDENT + _as_clause(name),
         _CLAUSE_INDENT + _paren_list("KEY", artifact.edge_key_columns),
-        *_endpoint_lines(
-            "SOURCE KEY", artifact.from_columns, relationship.from_entity, domain
-        ),
-        *_endpoint_lines(
-            "DESTINATION KEY", artifact.to_columns, relationship.to_entity, domain
-        ),
+        *_endpoint_lines("SOURCE KEY", artifact.from_columns, relationship.from_entity, domain),
+        *_endpoint_lines("DESTINATION KEY", artifact.to_columns, relationship.to_entity, domain),
         _CLAUSE_INDENT + _label_clause(name),
     ]
     property_names = tuple(relationship.properties)

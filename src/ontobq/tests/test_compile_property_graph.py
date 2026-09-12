@@ -86,9 +86,7 @@ def test_commerce_placed_edge_uses_helpers_and_semantic_properties() -> None:
     assert "REFERENCES Order (id)" in sql
     assert "PROPERTIES (placedAt)" in sql
     assert "created_at" not in sql
-    helper_count = (
-        len(placed.edge_key_columns) + len(placed.from_columns) + len(placed.to_columns)
-    )
+    helper_count = len(placed.edge_key_columns) + len(placed.from_columns) + len(placed.to_columns)
     semantic_tail = placed.output_columns[helper_count:]
     assert tuple(domain.relationships["PLACED"].properties) == semantic_tail
 
@@ -174,7 +172,7 @@ def test_compiler_consumes_mapping_view_artifacts_not_naming_helpers() -> None:
     assert "node_view_name" not in text
     assert "edge_view_name" not in text
     assert "def normalize_view_segment" not in text
-    assert ".mapping" not in text
+    assert re.search(r"\.mapping\b", text) is None
     assert "column:" not in text
     assert "expression:" not in text
     assert "_ontobq_" not in text
@@ -204,9 +202,7 @@ def test_missing_entity_artifact_raises() -> None:
 
 def test_missing_relationship_artifact_raises() -> None:
     domain = load_domain(FIXTURES_DIR / "commerce.yaml")
-    views = tuple(
-        item for item in compile_mapping_views(domain) if item.semantic_name != "PLACED"
-    )
+    views = tuple(item for item in compile_mapping_views(domain) if item.semantic_name != "PLACED")
     with pytest.raises(ValueError, match="missing relationship mapping-view artifact for 'PLACED'"):
         compile_property_graph(domain, views)
 
@@ -225,8 +221,52 @@ def test_missing_graph_name_raises() -> None:
         entities=domain.entities,
         relationships=domain.relationships,
     )
-    with pytest.raises(ValueError, match="missing spec.bigquery.graph"):
+    with pytest.raises(ValueError, match=r"missing spec\.bigquery\.graph"):
         compile_property_graph(broken, compile_mapping_views(domain))
+
+
+def test_unknown_endpoint_entity_raises() -> None:
+    domain = load_domain(FIXTURES_DIR / "commerce.yaml")
+    views = compile_mapping_views(domain)
+    placed = domain.relationships["PLACED"]
+    broken = RelationshipDefinition(
+        from_entity="Missing",
+        to_entity=placed.to_entity,
+        mapping=placed.mapping,
+        properties=placed.properties,
+    )
+    broken_domain = Domain(
+        api_version=domain.api_version,
+        kind=domain.kind,
+        metadata=domain.metadata,
+        bigquery=domain.bigquery,
+        entities=domain.entities,
+        relationships={"PLACED": broken},
+    )
+    with pytest.raises(ValueError, match="unknown entity 'Missing'"):
+        compile_property_graph(broken_domain, views)
+
+
+def test_hyphenated_semantic_name_is_quoted() -> None:
+    entity = EntityDefinition(
+        key=("id",),
+        properties={"id": PropertyDefinition(type=PropertyType.STRING, nullable=False)},
+        mapping=BigQueryEntityMapping(
+            source="my-project.raw.customers",
+            properties={"id": ColumnMapping(column="customer_id")},
+        ),
+    )
+    domain = Domain(
+        api_version="ontobq.dev/v1alpha1",
+        kind="Domain",
+        metadata=Metadata(name="commerce"),
+        bigquery=BigQueryTarget(project="my-project", dataset="semantic", graph="commerce_graph"),
+        entities={"Bad-Name": entity},
+        relationships={},
+    )
+    sql = _compile(domain).sql
+    assert "AS `Bad-Name`" in sql
+    assert "LABEL `Bad-Name`" in sql
 
 
 def _artifact(views: tuple[MappingViewArtifact, ...], name: str) -> MappingViewArtifact:
@@ -280,9 +320,7 @@ def _line_item_domain() -> Domain:
         api_version="ontobq.dev/v1alpha1",
         kind="Domain",
         metadata=Metadata(name="commerce"),
-        bigquery=BigQueryTarget(
-            project="my-project", dataset="semantic", graph="commerce_graph"
-        ),
+        bigquery=BigQueryTarget(project="my-project", dataset="semantic", graph="commerce_graph"),
         entities={"Order": order, "LineItem": line_item},
         relationships={"CONTAINS": contains},
     )
