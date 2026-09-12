@@ -17,5 +17,11 @@
 from __future__ import annotations
 
 from ontobq.compile.mapping_views import MappingViewArtifact, compile_mapping_views
+from ontobq.compile.property_graph import PropertyGraphArtifact, compile_property_graph
 
-__all__ = ["MappingViewArtifact", "compile_mapping_views"]
+__all__ = [
+    "MappingViewArtifact",
+    "PropertyGraphArtifact",
+    "compile_mapping_views",
+    "compile_property_graph",
+]
