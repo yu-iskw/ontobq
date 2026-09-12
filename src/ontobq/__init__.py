@@ -14,6 +14,7 @@
 
 """OntoBQ: ontology-as-code Domain IR for BigQuery Property Graph."""
 
+from ontobq.compile import MappingViewArtifact, compile_mapping_views
 from ontobq.diagnostics import Diagnostic, DomainLoadError, Severity
 from ontobq.ir import (
     BigQueryEntityMapping,
@@ -52,11 +53,13 @@ __all__ = [
     "DomainLoadError",
     "EntityDefinition",
     "ExpressionMapping",
+    "MappingViewArtifact",
     "Metadata",
     "PropertyDefinition",
     "PropertyType",
     "RelationshipDefinition",
     "Severity",
+    "compile_mapping_views",
     "edge_key_column",
     "edge_view_name",
     "from_key_column",
