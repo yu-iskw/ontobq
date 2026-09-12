@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 import yaml
 from jsonschema import Draft202012Validator
@@ -55,6 +55,53 @@ _JSON_SUFFIX = ".json"
 _YAML_SUFFIXES = {".yaml", ".yml"}
 
 
+class _DuplicateMappingKeyError(ValueError):
+    """A mapping repeated a key during JSON or YAML parse."""
+
+    def __init__(self, path: tuple[str, ...]) -> None:
+        self.path = path
+        super().__init__(".".join(path) if path else "$")
+
+
+class _JsonMap(NamedTuple):
+    """JSON object preserved as pairs so duplicate keys remain visible."""
+
+    pairs: tuple[tuple[Any, Any], ...]
+
+
+class _UniqueKeySafeLoader(yaml.SafeLoader):
+    """SafeLoader that rejects repeated mapping keys."""
+
+    def __init__(self, stream: Any) -> None:
+        super().__init__(stream)
+        self._mapping_path: list[str] = []
+
+    def construct_mapping(self, node: Any, deep: bool = False) -> dict[Any, Any]:
+        self.flatten_mapping(node)
+        mapping: dict[Any, Any] = {}
+        for key_node, value_node in node.value:
+            key = self.construct_object(key_node, deep=deep)
+            mapping[key] = self._construct_unique_value(mapping, key, value_node, deep)
+        return mapping
+
+    def _construct_unique_value(
+        self,
+        mapping: dict[Any, Any],
+        key: object,
+        value_node: Any,
+        deep: bool,
+    ) -> object:
+        rendered = str(key)
+        key_path = (*self._mapping_path, rendered)
+        if key in mapping:
+            raise _DuplicateMappingKeyError(key_path)
+        self._mapping_path.append(rendered)
+        try:
+            return self.construct_object(value_node, deep=deep)
+        finally:
+            self._mapping_path.pop()
+
+
 def load_domain(path: str | Path) -> Domain:
     """Load a Domain document from YAML or JSON after structural validation."""
     source = Path(path)
@@ -69,7 +116,7 @@ def parse_domain_file(path: Path) -> object:
     """Parse a Domain file into a JSON-compatible object."""
     _ensure_exists(path)
     parser = _parser_for_suffix(path.suffix.lower())
-    return parser(path, path.read_text(encoding="utf-8"))
+    return parser(path, _read_utf8_text(path))
 
 
 def structural_diagnostics(document: object) -> tuple[Diagnostic, ...]:
@@ -119,16 +166,30 @@ def _parser_for_suffix(suffix: str) -> Callable[[Path, str], object]:
 
 def _parse_json(path: Path, text: str) -> object:
     try:
-        return json.loads(text)
+        loaded = json.loads(text, object_pairs_hook=_json_object_pairs)
     except json.JSONDecodeError as exc:
         raise DomainLoadError((_file_diagnostic(path, f"invalid JSON: {exc.msg}"),)) from exc
+    try:
+        return _materialize_json(loaded, ())
+    except _DuplicateMappingKeyError as exc:
+        raise _duplicate_key_error(path, exc.path) from exc
 
 
 def _parse_yaml(path: Path, text: str) -> object:
     try:
-        return yaml.safe_load(text)
+        return _load_unique_yaml(text)
+    except _DuplicateMappingKeyError as exc:
+        raise _duplicate_key_error(path, exc.path) from exc
     except yaml.YAMLError as exc:
         raise DomainLoadError((_file_diagnostic(path, f"invalid YAML: {exc}"),)) from exc
+
+
+def _load_unique_yaml(text: str) -> object:
+    loader = _UniqueKeySafeLoader(text)
+    try:
+        return loader.get_single_data()
+    finally:
+        loader.dispose()
 
 
 def _validation_error_to_diagnostic(error: ValidationError) -> Diagnostic:
@@ -141,12 +202,49 @@ def _validation_error_to_diagnostic(error: ValidationError) -> Diagnostic:
 
 
 def _jsonschema_path(error: ValidationError) -> str:
-    json_path = error.json_path
-    if json_path in {"$", "$.", ""}:
+    components = [str(part) for part in error.absolute_path]
+    if not components:
         return "$"
-    if json_path.startswith("$."):
-        return json_path[2:]
-    return json_path.lstrip("$") or "$"
+    return ".".join(components)
+
+
+def _read_utf8_text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        raise DomainLoadError((_file_diagnostic(path, str(exc)),)) from exc
+
+
+def _json_object_pairs(pairs: list[tuple[Any, Any]]) -> _JsonMap:
+    return _JsonMap(tuple(pairs))
+
+
+def _materialize_json(value: object, path: tuple[str, ...]) -> object:
+    if isinstance(value, _JsonMap):
+        return _materialize_json_map(value, path)
+    if isinstance(value, list):
+        return [_materialize_json(item, (*path, str(index))) for index, item in enumerate(value)]
+    return value
+
+
+def _materialize_json_map(value: _JsonMap, path: tuple[str, ...]) -> dict[Any, Any]:
+    mapping: dict[Any, Any] = {}
+    for key, child in value.pairs:
+        if key in mapping:
+            raise _DuplicateMappingKeyError((*path, str(key)))
+        mapping[key] = _materialize_json(child, (*path, str(key)))
+    return mapping
+
+
+def _duplicate_key_error(path: Path, key_path: tuple[str, ...]) -> DomainLoadError:
+    location = ".".join(key_path) if key_path else "$"
+    diagnostic = Diagnostic(
+        code=STRUCTURAL_ERROR_CODE,
+        severity=Severity.ERROR,
+        path=location,
+        message=f"{path}: duplicate mapping key",
+    )
+    return DomainLoadError((diagnostic,))
 
 
 def _file_diagnostic(path: Path, message: str) -> Diagnostic:
