@@ -4,12 +4,15 @@ Ontology-as-code compiler that maps a versioned Domain document onto BigQuery
 Property Graph views.
 
 v1alpha1 loads YAML or JSON Domain documents into a typed intermediate
-representation after JSON Schema validation. Read-only BigQuery metadata
-validation (`validate_bigquery_metadata`) reports `OBQ101`-`OBQ105` through
-the shared `Diagnostic` type. The Google Cloud adapter lives in
-`ontobq.bigquery.google` and is an optional extra (`pip install ontobq[bigquery]`).
-Default tests use `FakeBigQueryInspector` and do not need a GCP project.
-Semantic checks, integrity scans, and the CLI land in later issues.
+representation after JSON Schema validation. Mapping-view compilation,
+read-only BigQuery metadata validation (`validate_bigquery_metadata`,
+`OBQ101`–`OBQ105`), and data-integrity checks (`OBQ201`–`OBQ206`) are
+library APIs. The Google Cloud adapter lives in `ontobq.bigquery.google`
+and is an optional extra (`pip install ontobq[bigquery]`). Default tests
+use `FakeBigQueryInspector` and do not need a GCP project. Semantic
+checks, the CLI, and apply land in later issues.
+Keep [RFC 8](https://github.com/yu-iskw/ontobq/issues/8) open until end-to-end
+apply is proven.
 
 ## Features
 
@@ -18,6 +21,11 @@ Semantic checks, integrity scans, and the CLI land in later issues.
 - **Linting & Formatting**: [Trunk](https://trunk.io/) (Ruff, Pyright, Pylint, Bandit; Ruff is also the formatter)
 - **Testing**: [pytest](https://docs.pytest.org/)
 - **CI/CD**: GitHub Actions
+- **Data integrity**: `compile_integrity_queries` / `validate_integrity` emit
+  read-only source-table SELECTs for key nullability, uniqueness, and orphan
+  endpoints (`OBQ201`–`OBQ206`). They do not query mapping views or the
+  property graph. Execution goes through `BigQueryReadExecutor` (tests use
+  `FakeBigQueryReadExecutor`).
 
 ## Security & Quality
 
