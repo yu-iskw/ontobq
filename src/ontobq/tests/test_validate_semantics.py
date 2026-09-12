@@ -129,8 +129,28 @@ def test_obq006_relationship_property_set_mismatch() -> None:
     assert diagnostics[0].evidence == ("placedAt",)
 
 
+def _customer_only_domain(graph: str) -> Domain:
+    entity = EntityDefinition(
+        key=("id",),
+        properties={"id": PropertyDefinition(type=PropertyType.STRING, nullable=False)},
+        mapping=BigQueryEntityMapping(
+            source="my-project.raw.customers",
+            properties={"id": ColumnMapping(column="customer_id")},
+        ),
+    )
+    return Domain(
+        api_version="ontobq.dev/v1alpha1",
+        kind="Domain",
+        metadata=Metadata(name="commerce"),
+        bigquery=BigQueryTarget(project="my-project", dataset="semantic", graph=graph),
+        entities={"Customer": entity},
+        relationships={},
+    )
+
+
 def test_obq007_reserved_graph_name() -> None:
-    diagnostics = _assert_single_code(_load_semantics("obq007-reserved-graph.yaml"), "OBQ007")
+    # After #20, spec.bigquery.graph is an Identifier, so reserved names are IR-only.
+    diagnostics = _assert_single_code(_customer_only_domain("__ontobq_reserved"), "OBQ007")
     assert diagnostics[0].path == "spec.bigquery.graph"
     assert diagnostics[0].evidence == ("__ontobq_reserved",)
 
@@ -186,12 +206,12 @@ def test_obq008_graph_element_alias_collision() -> None:
 
 
 def test_obq008_graph_name_collides_with_view() -> None:
-    domain = _load_semantics("obq008-graph-vs-view.yaml")
-    diagnostics = validate_semantics(domain)
+    view = node_view_name("commerce", "Customer")
+    diagnostics = validate_semantics(_customer_only_domain(view))
     collisions = [item for item in diagnostics if item.code == "OBQ008"]
     assert collisions
     assert any(item.path == "spec.bigquery.graph" for item in collisions)
-    assert node_view_name("commerce", "Customer") in {
+    assert view in {
         token for item in collisions for token in (*item.evidence, item.path, item.message)
     }
 
