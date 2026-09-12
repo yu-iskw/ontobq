@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest  # pyright: ignore[reportMissingImports]
 
@@ -25,8 +26,10 @@ from ontobq import (
     node_view_name,
 )
 from ontobq.compile import mapping_views as mapping_views_module
-from ontobq.compile.mapping_views import MappingViewArtifact
 from ontobq.tests.paths import FIXTURES_DIR, TESTS_DIR
+
+if TYPE_CHECKING:
+    from ontobq.compile.mapping_views import MappingViewArtifact
 
 _GOLDENS = TESTS_DIR / "goldens" / "mapping_views"
 
@@ -147,10 +150,20 @@ def test_expression_parenthesizes_top_level_comma_and_as() -> None:
     as_kw = compile_mapping_views(_expression_domain("x AS y"))[0]
     casted = compile_mapping_views(_expression_domain("CAST(x AS STRING)"))[0]
     concat = compile_mapping_views(_expression_domain("CONCAT(a, b)"))[0]
+    quoted = compile_mapping_views(_expression_domain("'a, b'"))[0]
+    doubled = compile_mapping_views(_expression_domain("'a''b'"))[0]
+    escaped = compile_mapping_views(_expression_domain(r"'a\,b'"))[0]
+    extra_paren = compile_mapping_views(_expression_domain("id)"))[0]
+    unclosed = compile_mapping_views(_expression_domain("'still-open"))[0]
     assert "(foo, bar) AS id" in comma.sql
     assert "(x AS y) AS id" in as_kw.sql
     assert "CAST(x AS STRING) AS id" in casted.sql
     assert "CONCAT(a, b) AS id" in concat.sql
+    assert "'a, b' AS id" in quoted.sql
+    assert "'a''b' AS id" in doubled.sql
+    assert r"'a\,b' AS id" in escaped.sql
+    assert "id) AS id" in extra_paren.sql
+    assert "'still-open AS id" in unclosed.sql
 
 
 def test_recompile_is_byte_for_byte_stable() -> None:

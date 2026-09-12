@@ -41,6 +41,7 @@ if TYPE_CHECKING:
 
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _QUOTES = "'\"`"
+_BACKTICK = "`"
 
 
 class _AliasedSelect(NamedTuple):
@@ -97,9 +98,7 @@ def compile_mapping_views(domain: Domain) -> tuple[MappingViewArtifact, ...]:
     return entities + relationships
 
 
-def _compile_entity(
-    domain: Domain, name: str, entity: EntityDefinition
-) -> MappingViewArtifact:
+def _compile_entity(domain: Domain, name: str, entity: EntityDefinition) -> MappingViewArtifact:
     view_name = node_view_name(domain.metadata.name, name)
     projection = _property_projection(
         entity.properties, entity.mapping.properties, "entity property"
@@ -131,9 +130,7 @@ def _compile_relationship(
 ) -> MappingViewArtifact:
     view_name = edge_view_name(domain.metadata.name, name)
     projection = _relationship_projection(domain, relationship)
-    return _relationship_artifact(
-        domain, name, view_name, relationship.mapping.source, projection
-    )
+    return _relationship_artifact(domain, name, view_name, relationship.mapping.source, projection)
 
 
 def _relationship_artifact(
@@ -202,9 +199,7 @@ def _endpoint_projection(
     namer: Callable[[str], str],
     where: str,
 ) -> tuple[_AliasedSelect, ...]:
-    return tuple(
-        _select_for_alias(_lookup(values, name, where), namer(name)) for name in key_names
-    )
+    return tuple(_select_for_alias(_lookup(values, name, where), namer(name)) for name in key_names)
 
 
 def _property_projection(
@@ -330,4 +325,5 @@ def _quote_identifier(identifier: str) -> str:
 
 
 def _quote_resource(name: str) -> str:
-    return f"`{name.replace('`', '``')}`"
+    escaped = name.replace(_BACKTICK, _BACKTICK * 2)
+    return f"{_BACKTICK}{escaped}{_BACKTICK}"
