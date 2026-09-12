@@ -43,23 +43,30 @@ def _assert_single_code(domain: Domain, code: str) -> tuple[Diagnostic, ...]:
     return diagnostics
 
 
+def _assert_no_diagnostics(diagnostics: tuple[Diagnostic, ...]) -> None:
+    assert isinstance(diagnostics, tuple)
+    assert len(diagnostics) == 0
+
+
 def test_commerce_yaml_is_semantically_valid() -> None:
-    assert validate_semantics(load_domain(FIXTURES_DIR / "commerce.yaml")) == ()
+    _assert_no_diagnostics(validate_semantics(load_domain(FIXTURES_DIR / "commerce.yaml")))
 
 
 def test_commerce_json_is_semantically_valid() -> None:
-    assert validate_semantics(load_domain(FIXTURES_DIR / "commerce.json")) == ()
+    _assert_no_diagnostics(validate_semantics(load_domain(FIXTURES_DIR / "commerce.json")))
 
 
 def test_expression_mapping_is_semantically_valid() -> None:
-    assert validate_semantics(load_domain(FIXTURES_DIR / "expression-mapping.yaml")) == ()
+    _assert_no_diagnostics(
+        validate_semantics(load_domain(FIXTURES_DIR / "expression-mapping.yaml"))
+    )
 
 
 def test_composite_endpoints_are_semantically_valid() -> None:
     domain = _load_semantics("composite-endpoints.yaml")
     assert domain.entities["Customer"].key == ("tenantId", "id")
     assert set(domain.relationships["PLACED"].mapping.from_endpoint) == {"tenantId", "id"}
-    assert validate_semantics(domain) == ()
+    _assert_no_diagnostics(validate_semantics(domain))
 
 
 def test_validate_semantics_is_deterministic() -> None:
