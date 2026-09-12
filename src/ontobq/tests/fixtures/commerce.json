@@ -1,0 +1,74 @@
+{
+  "apiVersion": "ontobq.dev/v1alpha1",
+  "kind": "Domain",
+  "metadata": {
+    "name": "commerce",
+    "displayName": "Commerce",
+    "description": "Commerce semantic domain."
+  },
+  "spec": {
+    "bigquery": {
+      "project": "my-project",
+      "dataset": "semantic",
+      "graph": "commerce_graph"
+    },
+    "entities": {
+      "Customer": {
+        "description": "A person or organization that places orders.",
+        "key": ["id"],
+        "properties": {
+          "id": { "type": "string", "nullable": false },
+          "name": { "type": "string" },
+          "country": { "type": "string" }
+        },
+        "mapping": {
+          "bigquery": {
+            "source": "my-project.raw.customers",
+            "properties": {
+              "id": { "column": "customer_id" },
+              "name": { "column": "customer_name" },
+              "country": { "column": "country" }
+            }
+          }
+        }
+      },
+      "Order": {
+        "key": ["id"],
+        "properties": {
+          "id": { "type": "string", "nullable": false },
+          "createdAt": { "type": "timestamp" },
+          "status": { "type": "string" }
+        },
+        "mapping": {
+          "bigquery": {
+            "source": "my-project.raw.orders",
+            "properties": {
+              "id": { "column": "order_id" },
+              "createdAt": { "column": "created_at" },
+              "status": { "column": "status" }
+            }
+          }
+        }
+      }
+    },
+    "relationships": {
+      "PLACED": {
+        "description": "A Customer placed an Order.",
+        "from": "Customer",
+        "to": "Order",
+        "properties": {
+          "placedAt": { "type": "timestamp" }
+        },
+        "mapping": {
+          "bigquery": {
+            "source": "my-project.raw.orders",
+            "key": [{ "column": "order_id" }],
+            "from": { "id": { "column": "customer_id" } },
+            "to": { "id": { "column": "order_id" } },
+            "properties": { "placedAt": { "column": "created_at" } }
+          }
+        }
+      }
+    }
+  }
+}

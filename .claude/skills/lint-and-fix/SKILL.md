@@ -56,7 +56,7 @@ When `trunk` is missing from `PATH` and mise is not installed, prefer explicit *
 
 ### Scenario: Fixing a formatting violation
 
-1. `make lint` reports formatting issues in `src/your_package/main.py`.
+1. `make lint` reports formatting issues in `src/ontobq/load.py`.
 2. Agent runs `make format`.
 3. `make lint` and `make dead-code` now pass.
 

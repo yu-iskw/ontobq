@@ -1,0 +1,201 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ontobq.dev/schemas/v1alpha1.json",
+  "title": "OntoBQ Domain",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": { "const": "ontobq.dev/v1alpha1" },
+    "kind": { "const": "Domain" },
+    "metadata": { "$ref": "#/$defs/Metadata" },
+    "spec": { "$ref": "#/$defs/Spec" }
+  },
+  "$defs": {
+    "Identifier": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+    },
+    "PropertyType": {
+      "type": "string",
+      "enum": [
+        "string",
+        "integer",
+        "number",
+        "boolean",
+        "date",
+        "datetime",
+        "time",
+        "timestamp",
+        "bytes",
+        "json",
+        "geography"
+      ]
+    },
+    "ColumnMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["column"],
+      "properties": {
+        "column": { "type": "string", "minLength": 1 }
+      }
+    },
+    "ExpressionMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expression"],
+      "properties": {
+        "expression": { "type": "string", "minLength": 1 }
+      }
+    },
+    "MappingValue": {
+      "oneOf": [
+        { "$ref": "#/$defs/ColumnMapping" },
+        { "$ref": "#/$defs/ExpressionMapping" }
+      ]
+    },
+    "Metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "$ref": "#/$defs/Identifier" },
+        "displayName": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" }
+      }
+    },
+    "BigQueryTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project", "dataset", "graph"],
+      "properties": {
+        "project": { "type": "string", "minLength": 1 },
+        "dataset": { "type": "string", "minLength": 1 },
+        "graph": { "type": "string", "minLength": 1 }
+      }
+    },
+    "PropertyDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "$ref": "#/$defs/PropertyType" },
+        "nullable": { "type": "boolean", "default": true }
+      }
+    },
+    "PropertyMap": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "$ref": "#/$defs/Identifier" },
+      "additionalProperties": { "$ref": "#/$defs/PropertyDefinition" }
+    },
+    "MappingValueMap": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "$ref": "#/$defs/Identifier" },
+      "additionalProperties": { "$ref": "#/$defs/MappingValue" }
+    },
+    "OptionalMappingValueMap": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/Identifier" },
+      "additionalProperties": { "$ref": "#/$defs/MappingValue" }
+    },
+    "BigQueryTableId": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$"
+    },
+    "BigQueryEntityMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "properties"],
+      "properties": {
+        "source": { "$ref": "#/$defs/BigQueryTableId" },
+        "properties": { "$ref": "#/$defs/MappingValueMap" }
+      }
+    },
+    "EntityMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bigquery"],
+      "properties": {
+        "bigquery": { "$ref": "#/$defs/BigQueryEntityMapping" }
+      }
+    },
+    "EntityDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "properties", "mapping"],
+      "properties": {
+        "description": { "type": "string" },
+        "key": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/Identifier" }
+        },
+        "properties": { "$ref": "#/$defs/PropertyMap" },
+        "mapping": { "$ref": "#/$defs/EntityMapping" }
+      }
+    },
+    "BigQueryRelationshipMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "key", "from", "to"],
+      "properties": {
+        "source": { "$ref": "#/$defs/BigQueryTableId" },
+        "key": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/MappingValue" }
+        },
+        "from": { "$ref": "#/$defs/MappingValueMap" },
+        "to": { "$ref": "#/$defs/MappingValueMap" },
+        "properties": { "$ref": "#/$defs/OptionalMappingValueMap" }
+      }
+    },
+    "RelationshipMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bigquery"],
+      "properties": {
+        "bigquery": { "$ref": "#/$defs/BigQueryRelationshipMapping" }
+      }
+    },
+    "RelationshipDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to", "mapping"],
+      "properties": {
+        "description": { "type": "string" },
+        "from": { "$ref": "#/$defs/Identifier" },
+        "to": { "$ref": "#/$defs/Identifier" },
+        "properties": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/Identifier" },
+          "additionalProperties": { "$ref": "#/$defs/PropertyDefinition" }
+        },
+        "mapping": { "$ref": "#/$defs/RelationshipMapping" }
+      }
+    },
+    "Spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bigquery", "entities"],
+      "properties": {
+        "bigquery": { "$ref": "#/$defs/BigQueryTarget" },
+        "entities": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "$ref": "#/$defs/Identifier" },
+          "additionalProperties": { "$ref": "#/$defs/EntityDefinition" }
+        },
+        "relationships": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/Identifier" },
+          "additionalProperties": { "$ref": "#/$defs/RelationshipDefinition" }
+        }
+      }
+    }
+  }
+}

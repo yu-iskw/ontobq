@@ -31,8 +31,8 @@ An autonomous loop for the agent to identify, analyze, and fix failing unit test
 
 ### Scenario: Fixing a logic error
 
-1. `make test` fails in `src/your_package/tests/test_dummy.py` due to an assertion or import error.
-2. Agent inspects the failing test and the implementation under `src/your_package/`.
+1. `make test` fails in `src/ontobq/tests/test_load_domain.py` due to an assertion or import error.
+2. Agent inspects the failing test and the implementation under `src/ontobq/`.
 3. Agent applies the minimum fix in source or test so behavior matches the intended contract.
 4. `make test` passes.
 
