@@ -112,7 +112,7 @@ def test_composite_contains_keys_and_empty_edge_properties() -> None:
     assert "PROPERTIES (" not in sql.split("AS CONTAINS", 1)[1]
     helpers = contains.edge_key_columns + contains.from_columns + contains.to_columns
     assert contains.output_columns == helpers
-    assert tuple(domain.relationships["CONTAINS"].properties) == ()
+    assert not domain.relationships["CONTAINS"].properties
     assert artifact.sql == _golden("composite_contains.sql")
 
 
