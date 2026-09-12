@@ -14,6 +14,13 @@
 
 """OntoBQ: ontology-as-code Domain IR for BigQuery Property Graph."""
 
+from ontobq.bigquery import (
+    BigQueryInspector,
+    ColumnSnapshot,
+    FakeBigQueryInspector,
+    ScalarDryRunResult,
+    SourceSnapshot,
+)
 from ontobq.compile import (
     MappingViewArtifact,
     PropertyGraphArtifact,
@@ -44,27 +51,33 @@ from ontobq.naming import (
     to_key_column,
 )
 from ontobq.schema import API_VERSION, KIND, SCHEMA_ID, load_v1alpha1_schema
+from ontobq.validate import validate_bigquery_metadata
 
 __all__ = [
     "API_VERSION",
     "KIND",
     "SCHEMA_ID",
     "BigQueryEntityMapping",
+    "BigQueryInspector",
     "BigQueryRelationshipMapping",
     "BigQueryTarget",
     "ColumnMapping",
+    "ColumnSnapshot",
     "Diagnostic",
     "Domain",
     "DomainLoadError",
     "EntityDefinition",
     "ExpressionMapping",
+    "FakeBigQueryInspector",
     "MappingViewArtifact",
     "Metadata",
     "PropertyDefinition",
     "PropertyGraphArtifact",
     "PropertyType",
     "RelationshipDefinition",
+    "ScalarDryRunResult",
     "Severity",
+    "SourceSnapshot",
     "compile_mapping_views",
     "compile_property_graph",
     "edge_key_column",
@@ -75,4 +88,5 @@ __all__ = [
     "node_view_name",
     "normalize_view_segment",
     "to_key_column",
+    "validate_bigquery_metadata",
 ]
