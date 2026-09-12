@@ -21,6 +21,11 @@ from ontobq.bigquery import (
     ScalarDryRunResult,
     SourceSnapshot,
 )
+from ontobq.bq import (
+    BigQueryReadExecutor,
+    FakeBigQueryReadExecutor,
+    QueryEstimate,
+)
 from ontobq.compile import (
     MappingViewArtifact,
     PropertyGraphArtifact,
@@ -51,7 +56,14 @@ from ontobq.naming import (
     to_key_column,
 )
 from ontobq.schema import API_VERSION, KIND, SCHEMA_ID, load_v1alpha1_schema
-from ontobq.validate import validate_bigquery_metadata
+from ontobq.validate import (
+    IntegrityExecutionError,
+    IntegrityQuery,
+    IntegrityReport,
+    compile_integrity_queries,
+    validate_bigquery_metadata,
+    validate_integrity,
+)
 
 __all__ = [
     "API_VERSION",
@@ -59,6 +71,7 @@ __all__ = [
     "SCHEMA_ID",
     "BigQueryEntityMapping",
     "BigQueryInspector",
+    "BigQueryReadExecutor",
     "BigQueryRelationshipMapping",
     "BigQueryTarget",
     "ColumnMapping",
@@ -69,15 +82,21 @@ __all__ = [
     "EntityDefinition",
     "ExpressionMapping",
     "FakeBigQueryInspector",
+    "FakeBigQueryReadExecutor",
+    "IntegrityExecutionError",
+    "IntegrityQuery",
+    "IntegrityReport",
     "MappingViewArtifact",
     "Metadata",
     "PropertyDefinition",
     "PropertyGraphArtifact",
     "PropertyType",
+    "QueryEstimate",
     "RelationshipDefinition",
     "ScalarDryRunResult",
     "Severity",
     "SourceSnapshot",
+    "compile_integrity_queries",
     "compile_mapping_views",
     "compile_property_graph",
     "edge_key_column",
@@ -89,4 +108,5 @@ __all__ = [
     "normalize_view_segment",
     "to_key_column",
     "validate_bigquery_metadata",
+    "validate_integrity",
 ]

@@ -12,26 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Domain validators.
+"""Read-only BigQuery query adapters for data-integrity validation."""
 
-Layer 3 BigQuery metadata checks live in ``bq_metadata``. Layer 4
-data-integrity checks live in ``integrity``.
-"""
-
-from ontobq.validate.bq_metadata import validate_bigquery_metadata
-from ontobq.validate.integrity import (
-    IntegrityExecutionError,
-    IntegrityQuery,
-    IntegrityReport,
-    compile_integrity_queries,
-    validate_integrity,
+from ontobq.bq.executor import (
+    BigQueryReadExecutor,
+    FakeBigQueryReadExecutor,
+    FakeQueryCall,
+    QueryEstimate,
 )
 
 __all__ = [
-    "IntegrityExecutionError",
-    "IntegrityQuery",
-    "IntegrityReport",
-    "compile_integrity_queries",
-    "validate_bigquery_metadata",
-    "validate_integrity",
+    "BigQueryReadExecutor",
+    "FakeBigQueryReadExecutor",
+    "FakeQueryCall",
+    "QueryEstimate",
 ]
