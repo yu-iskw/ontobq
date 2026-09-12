@@ -1,0 +1,27 @@
+name: Upgrade Trunk
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    # Runs every Wednesday (in the UTC timezone)
+    - cron: 0 0 * * 3
+
+permissions: {}
+
+jobs:
+  trunk_upgrade:
+    name: Upgrade Trunk
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # For trunk to create PRs
+      pull-requests: write # For trunk to create PRs
+    steps:
+      - name: Checkout
+        # Trunk needs git credentials for PR base fetch / PR creation.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.0 # zizmor: ignore[artipacked]
+      # >>> Install your own deps here (npm install, etc) <<<
+      # SEE https://github.com/trunk-io/trunk-action
+      - name: Trunk Upgrade
+        uses: trunk-io/trunk-action/upgrade@04ba50e7658c81db7356da96657e6e77f220bfa3 # v1.3.1
+        with:
+          signoff: true

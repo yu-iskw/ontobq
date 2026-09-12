@@ -1,0 +1,77 @@
+name: Test publish (testpypi)
+
+on:
+  workflow_dispatch:
+    inputs:
+      package_version:
+        description: package version
+        required: true
+
+permissions: {}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # For repo checkout
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        run: |
+          pip install -r requirements.setup.txt
+      - name: Test publish
+        env:
+          UV_PUBLISH_TOKEN: "${{ secrets.TESTPYPI_API_TOKEN }}"
+          PACKAGE_VERSION: "${{ inputs.package_version }}"
+        run: |
+          bash dev/publish.sh testpypi
+
+  test-published-package:
+    needs:
+      - publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # For repo checkout
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    defaults:
+      run:
+        shell: bash
+    env:
+      PYTHON_PACKAGE_NAME: YOUR_PYTHON_PACKAGE_NAME
+      PYTHON_NAME_SPACE: YOUR_PYTHON_NAME_SPACE
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "${{ matrix.python-version }}"
+      - name: Install packages
+        env:
+          PACKAGE_VERSION: "${{ inputs.package_version }}"
+        run: |
+          python3 -m pip install -U pip
+          python3 -m pip install \
+            --index-url https://test.pypi.org/simple/ \
+            --extra-index-url https://pypi.org/simple/ \
+            --force-reinstall \
+            -U "${PYTHON_PACKAGE_NAME}==${PACKAGE_VERSION}"
+      # It takes some time when the package gets available.
+      - name: Sleep
+        run: |
+          sleep 30
+      - name: Test package
+        run: |
+          python -c "import ${PYTHON_NAME_SPACE}"

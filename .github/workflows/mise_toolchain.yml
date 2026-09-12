@@ -1,0 +1,54 @@
+name: Mise toolchain
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/mise_toolchain.yml
+      - mise.toml
+      - mise.lock
+      - .trunk/trunk.yaml
+      - Makefile
+      - dev/setup-tools.sh
+      - dev/codeql-platform.sh
+      - dev/test-mise-toolchain.sh
+      - dev/codeql.sh
+      - dev/normalize_cyclonedx_sbom.py
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/mise_toolchain.yml
+      - mise.toml
+      - mise.lock
+      - .trunk/trunk.yaml
+      - Makefile
+      - dev/setup-tools.sh
+      - dev/codeql-platform.sh
+      - dev/test-mise-toolchain.sh
+      - dev/normalize_cyclonedx_sbom.py
+
+permissions: {}
+
+jobs:
+  mise-toolchain:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # For repo checkout
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4
+        with:
+          install: true
+          cache: true
+
+      - name: Smoke test mise integration
+        run: bash ./dev/test-mise-toolchain.sh
+
+      - name: Verify Makefile delegates to mise run (no wrapper script)
+        run: |
+          test ! -e dev/mise-exec.sh
+          grep -q 'mise run lint' Makefile
+          ! grep -q '^MISE_EXEC' Makefile

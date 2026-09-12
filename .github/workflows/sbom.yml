@@ -1,0 +1,99 @@
+name: SBOM and dependency audit
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/sbom.yml
+      - pyproject.toml
+      - uv.lock
+      - requirements.setup.txt
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/sbom.yml
+      - pyproject.toml
+      - uv.lock
+      - requirements.setup.txt
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sbom-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit-and-generate:
+    name: Audit and generate SBOM
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        run: |
+          python -m pip install \
+            --disable-pip-version-check \
+            --requirement requirements.setup.txt
+
+      - name: Verify lockfile consistency
+        run: uv lock --check
+
+      - name: Export runtime dependencies for auditing
+        run: |
+          mkdir -p artifacts
+          uv export \
+            --frozen \
+            --no-dev \
+            --no-emit-project \
+            --format requirements-txt \
+            --output-file artifacts/requirements-audit.txt
+
+      - name: Audit runtime dependencies
+        run: |
+          uvx --from pip-audit==2.10.1 pip-audit \
+            --strict \
+            --require-hashes \
+            --requirement artifacts/requirements-audit.txt
+
+      - name: Generate runtime CycloneDX SBOM
+        run: |
+          uv export \
+            --frozen \
+            --no-dev \
+            --format cyclonedx1.5 \
+            --output-file artifacts/sbom.cdx.json
+
+      - name: Validate SBOM structure
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("artifacts/sbom.cdx.json")
+          document = json.loads(path.read_text(encoding="utf-8"))
+
+          assert document.get("bomFormat") == "CycloneDX"
+          assert document.get("specVersion") == "1.5"
+          assert isinstance(document.get("metadata"), dict)
+
+          print(f"Validated {path}")
+          PY
+
+      - name: Upload SBOM evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: cyclonedx-sbom
+          path: |
+            artifacts/sbom.cdx.json
+            artifacts/requirements-audit.txt
+          if-no-files-found: error
+          retention-days: 30

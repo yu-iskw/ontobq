@@ -1,0 +1,60 @@
+name: Test python
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/test.yml
+      - pyproject.toml
+      - src/your_package/**/*.py
+      - pylintrc
+      - mise.toml
+      - mise.lock
+      - Makefile
+      - dev/**
+      - uv.lock
+      - .python-version
+      - requirements.setup.txt
+  push:
+    branches:
+      - main
+
+permissions: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # For repo checkout
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+      fail-fast: false
+    defaults:
+      run:
+        shell: bash
+    env:
+      PYTHON_PACKAGE_NAME: YOUR_PYTHON_PACKAGE_NAME
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          bash dev/setup.sh --deps "development"
+      - name: Vulture (dead code)
+        run: |
+          uv run vulture
+      - name: Run tests
+        run: |
+          uv run bash dev/test_python.sh
+      - name: Test build
+        run: |
+          uv run bash dev/build.sh
+      # - name: Test installation
+      #   run: |
+      #     pip install -e .
+      #     python -c 'import ${{ env.PYTHON_PACKAGE_NAME }}'

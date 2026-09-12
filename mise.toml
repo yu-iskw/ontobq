@@ -1,0 +1,92 @@
+# Toolchain managed by mise (https://mise.jdx.dev/).
+# Versions use "latest" with minimum_release_age; committed mise.lock pins resolved releases.
+#
+# Install: mise install --locked  (or: make setup-tools)
+# Run: mise run <task>  (or: make lint, make scan-vulnerabilities, etc.)
+# Refresh: mise lock && git add mise.lock
+
+[settings]
+minimum_release_age = "7d"
+lockfile = true
+
+# Disabled when Sigstore/TUF or GitHub attestations are unreachable (e.g. restricted CI).
+# Checksums in mise.lock still pin downloads; re-enable when your network supports verification.
+[settings.aqua]
+cosign = false
+slsa = false
+
+[settings.github]
+github_attestations = false
+
+# Installed by `mise install --locked`; tasks use per-task `tools` for scoped activation.
+[tools]
+trunk = "latest"
+trivy = "0.73.0"
+"osv-scanner" = "2.5.0"
+grype = "latest"
+codeql = "latest"
+
+[tasks.lint]
+description = "Run Trunk on all files"
+tools.trunk = "latest"
+run = "trunk check -a"
+
+[tasks.format-trunk]
+description = "Format sources with Trunk"
+tools.trunk = "latest"
+run = "trunk fmt -a"
+
+[tasks.trunk-install]
+description = "Install Trunk-managed linters (run after mise install)"
+tools.trunk = "latest"
+run = "trunk install"
+
+[tasks.scan-trivy]
+description = "Trivy filesystem vulnerability scan"
+tools.trivy = "latest"
+run = "trivy fs ."
+
+[tasks.scan-osv]
+description = "OSV-Scanner recursive lockfile scan"
+tools = { "osv-scanner" = "latest" }
+run = "osv-scanner scan -r ."
+
+[tasks.scan-grype]
+description = "Grype filesystem vulnerability scan"
+tools.grype = "latest"
+run = "grype ."
+
+[tasks.scan-vulnerabilities]
+description = "Trivy, OSV-Scanner, and Grype scans (serial; OSV exits 1 when vulns are found)"
+run = "mise run scan-trivy && mise run scan-osv && mise run scan-grype"
+
+[tasks.sbom-generate]
+description = "Generate CycloneDX JSON SBOM (runtime/production deps from lockfiles)"
+tools.trivy = "latest"
+# Trivy emits CycloneDX 1.7; Grype 0.112 (Syft) recognizes up to 1.6.
+run = """
+mkdir -p dist/sbom
+trivy fs --format cyclonedx --output dist/sbom/sbom.cdx.json .
+python3 ./dev/normalize_cyclonedx_sbom.py dist/sbom/sbom.cdx.json
+"""
+
+[tasks.sbom-scan-trivy]
+description = "Scan CycloneDX SBOM with Trivy (exit 1 on high/critical findings)"
+tools.trivy = "latest"
+# Prefer ghcr.io; default mirror.gcr.io is often blocked in restricted egress.
+env = { TRIVY_DB_REPOSITORY = "ghcr.io/aquasecurity/trivy-db:2" }
+run = "trivy sbom --severity HIGH,CRITICAL --exit-code 1 dist/sbom/sbom.cdx.json"
+
+[tasks.sbom-scan-grype]
+description = "Scan CycloneDX SBOM with Grype (fail on high or critical)"
+tools.grype = "latest"
+run = "grype sbom:dist/sbom/sbom.cdx.json --fail-on high"
+
+[tasks.sbom-check]
+description = "Generate CycloneDX SBOM then scan with Trivy and Grype (serial)"
+run = "mise run sbom-generate && mise run sbom-scan-trivy && mise run sbom-scan-grype"
+
+[tasks.codeql]
+description = "Local CodeQL analysis (Python security-and-quality)"
+tools.codeql = "latest"
+run = "bash ./dev/codeql.sh"
