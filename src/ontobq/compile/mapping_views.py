@@ -211,8 +211,19 @@ def _property_projection(
 
 
 def _select_for_alias(value: MappingValue, alias: str) -> _AliasedSelect:
-    sql = f"{_render_mapped_value(value)} AS {_quote_identifier(alias)}"
+    sql = _render_mapped_value(value) + _alias_clause(value, alias)
     return _AliasedSelect(sql, alias)
+
+
+def _alias_clause(value: MappingValue, alias: str) -> str:
+    quoted = _quote_identifier(alias)
+    if _mapped_value_ends_in_line_comment(value):
+        return f"\n  AS {quoted}"
+    return f" AS {quoted}"
+
+
+def _mapped_value_ends_in_line_comment(value: MappingValue) -> bool:
+    return isinstance(value, ExpressionMapping) and _ends_in_line_comment(value.expression)
 
 
 def _lookup(values: Mapping[str, MappingValue], name: str, where: str) -> MappingValue:
@@ -260,13 +271,13 @@ def _render_mapped_value(value: MappingValue) -> str:
 
 
 def _render_expression(expression: str) -> str:
-    if _needs_parentheses(expression):
-        return f"({expression})"
+    if _has_top_level_comma_or_as(expression):
+        raise ValueError("expression mappings must be scalar GoogleSQL expressions")
     return expression
 
 
-def _needs_parentheses(expression: str) -> bool:
-    """True when a top-level comma or AS would make ``AS alias`` ambiguous."""
+def _has_top_level_comma_or_as(expression: str) -> bool:
+    """True when a top-level comma or AS means the mapping is not a scalar."""
 
     depth = 0
     index = 0
@@ -278,13 +289,49 @@ def _needs_parentheses(expression: str) -> bool:
 
 
 def _advance_expression(expression: str, index: int, depth: int) -> tuple[int, int, bool]:
-    char = expression[index]
-    if char in _QUOTES:
-        return _skip_quoted(expression, index), depth, False
-    if char in "()":
-        return index + 1, _next_paren_depth(char, depth), False
-    ambiguous = depth == 0 and (char == "," or _is_as_keyword_at(expression, index))
+    skipped = _skip_token(expression, index)
+    if skipped is not None:
+        return skipped, depth, False
+    if expression[index] in "()":
+        return index + 1, _next_paren_depth(expression[index], depth), False
+    ambiguous = depth == 0 and (expression[index] == "," or _is_as_keyword_at(expression, index))
     return index + 1, depth, ambiguous
+
+
+def _skip_token(expression: str, index: int) -> int | None:
+    if expression[index] in _QUOTES:
+        return _skip_quoted(expression, index)
+    if _is_line_comment_at(expression, index):
+        return _skip_line_comment(expression, index)
+    return None
+
+
+def _is_line_comment_at(text: str, index: int) -> bool:
+    return text.startswith("--", index)
+
+
+def _skip_line_comment(text: str, start: int) -> int:
+    newline = text.find("\n", start)
+    if newline == -1:
+        return len(text)
+    return newline + 1
+
+
+def _ends_in_line_comment(expression: str) -> bool:
+    index = 0
+    while index < len(expression):
+        index, ended = _consume_comment_scan(expression, index)
+        if ended:
+            return True
+    return False
+
+
+def _consume_comment_scan(expression: str, index: int) -> tuple[int, bool]:
+    skipped = _skip_token(expression, index)
+    if skipped is None:
+        return index + 1, False
+    unclosed = _is_line_comment_at(expression, index) and "\n" not in expression[index:]
+    return skipped, unclosed
 
 
 def _next_paren_depth(char: str, depth: int) -> int:

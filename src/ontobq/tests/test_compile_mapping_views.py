@@ -145,9 +145,17 @@ def test_unsafe_column_identifier_is_quoted() -> None:
     assert "`customer-id` AS id" in artifacts[0].sql
 
 
-def test_expression_parenthesizes_top_level_comma_and_as() -> None:
-    comma = compile_mapping_views(_expression_domain("foo, bar"))[0]
-    as_kw = compile_mapping_views(_expression_domain("x AS y"))[0]
+def test_top_level_comma_expression_is_rejected() -> None:
+    with pytest.raises(ValueError, match="scalar GoogleSQL"):
+        compile_mapping_views(_expression_domain("foo, bar"))
+
+
+def test_top_level_as_expression_is_rejected() -> None:
+    with pytest.raises(ValueError, match="scalar GoogleSQL"):
+        compile_mapping_views(_expression_domain("x AS y"))
+
+
+def test_scalar_expressions_compile_verbatim() -> None:
     casted = compile_mapping_views(_expression_domain("CAST(x AS STRING)"))[0]
     concat = compile_mapping_views(_expression_domain("CONCAT(a, b)"))[0]
     quoted = compile_mapping_views(_expression_domain("'a, b'"))[0]
@@ -155,8 +163,6 @@ def test_expression_parenthesizes_top_level_comma_and_as() -> None:
     escaped = compile_mapping_views(_expression_domain(r"'a\,b'"))[0]
     extra_paren = compile_mapping_views(_expression_domain("id)"))[0]
     unclosed = compile_mapping_views(_expression_domain("'still-open"))[0]
-    assert "(foo, bar) AS id" in comma.sql
-    assert "(x AS y) AS id" in as_kw.sql
     assert "CAST(x AS STRING) AS id" in casted.sql
     assert "CONCAT(a, b) AS id" in concat.sql
     assert "'a, b' AS id" in quoted.sql
@@ -164,6 +170,36 @@ def test_expression_parenthesizes_top_level_comma_and_as() -> None:
     assert r"'a\,b' AS id" in escaped.sql
     assert "id) AS id" in extra_paren.sql
     assert "'still-open AS id" in unclosed.sql
+
+
+def test_line_comment_does_not_swallow_non_final_alias() -> None:
+    domain = _two_property_domain(
+        ExpressionMapping(expression="TRIM(name) -- trimmed"),
+        ColumnMapping(column="country"),
+    )
+    sql = compile_mapping_views(domain)[0].sql
+    assert "TRIM(name) -- trimmed\n  AS id," in sql
+    assert "country AS country" in sql
+
+
+def test_line_comment_does_not_swallow_final_alias() -> None:
+    domain = _two_property_domain(
+        ColumnMapping(column="customer_id"),
+        ExpressionMapping(expression="country -- source"),
+    )
+    sql = compile_mapping_views(domain)[0].sql
+    assert "customer_id AS id," in sql
+    assert "country -- source\n  AS country" in sql
+    assert "AS country\nFROM" in sql
+
+
+def test_comma_or_as_inside_line_comment_is_still_scalar() -> None:
+    comma = compile_mapping_views(_expression_domain("id -- x, y"))[0]
+    as_kw = compile_mapping_views(_expression_domain("id -- AS x"))[0]
+    quoted = compile_mapping_views(_expression_domain("'-- not comment'"))[0]
+    assert "id -- x, y\n  AS id" in comma.sql
+    assert "id -- AS x\n  AS id" in as_kw.sql
+    assert "'-- not comment' AS id" in quoted.sql
 
 
 def test_recompile_is_byte_for_byte_stable() -> None:
@@ -270,6 +306,22 @@ def _column_domain(column: str) -> Domain:
 def _expression_domain(expression: str) -> Domain:
     return _id_entity_domain(
         "Customer", "my-project.raw.customers", ExpressionMapping(expression=expression)
+    )
+
+
+def _two_property_domain(
+    id_mapping: ColumnMapping | ExpressionMapping,
+    country_mapping: ColumnMapping | ExpressionMapping,
+) -> Domain:
+    return _entity_only_domain(
+        "Customer",
+        ("id",),
+        {
+            "id": PropertyDefinition(type=PropertyType.STRING, nullable=False),
+            "country": PropertyDefinition(type=PropertyType.STRING),
+        },
+        "my-project.raw.customers",
+        {"id": id_mapping, "country": country_mapping},
     )
 
 
