@@ -46,7 +46,11 @@ from ontobq.validate.type_compat import physical_type_compatible
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from ontobq.bigquery.inspector import BigQueryInspector, SourceSnapshot
+    from ontobq.bigquery.inspector import (
+        BigQueryInspector,
+        ScalarDryRunResult,
+        SourceSnapshot,
+    )
     from ontobq.ir import (
         Domain,
         EntityDefinition,
@@ -68,6 +72,34 @@ class _Site:
     source: str
     path: str
     inspector: BigQueryInspector
+
+
+class _CachedInspector:
+    """Reuse source, column, and location lookups within one validation call."""
+
+    def __init__(self, inner: BigQueryInspector) -> None:
+        self._inner = inner
+        self._sources: dict[str, SourceSnapshot] = {}
+        self._columns: dict[str, tuple[ColumnSnapshot, ...]] = {}
+        self._locations: dict[str, str | None] = {}
+
+    def get_source(self, table_id: str) -> SourceSnapshot:
+        if table_id not in self._sources:
+            self._sources[table_id] = self._inner.get_source(table_id)
+        return self._sources[table_id]
+
+    def get_columns(self, table_id: str) -> tuple[ColumnSnapshot, ...]:
+        if table_id not in self._columns:
+            self._columns[table_id] = self._inner.get_columns(table_id)
+        return self._columns[table_id]
+
+    def dry_run_scalar_expression(self, source: str, expression: str) -> ScalarDryRunResult:
+        return self._inner.dry_run_scalar_expression(source, expression)
+
+    def get_location(self, resource: str) -> str | None:
+        if resource not in self._locations:
+            self._locations[resource] = self._inner.get_location(resource)
+        return self._locations[resource]
 
 
 def _error(code: str, path: str, message: str, evidence: tuple[str, ...]) -> Diagnostic:
@@ -416,6 +448,7 @@ def validate_bigquery_metadata(
 ) -> tuple[Diagnostic, ...]:
     """Return Layer 3 diagnostics for every mapped source, column, and expression."""
 
-    entity_diags = _validate_entities(domain, inspector)
-    relationship_diags = _validate_relationships(domain, inspector)
+    scoped = _CachedInspector(inspector)
+    entity_diags = _validate_entities(domain, scoped)
+    relationship_diags = _validate_relationships(domain, scoped)
     return entity_diags + relationship_diags

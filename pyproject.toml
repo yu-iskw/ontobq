@@ -52,7 +52,7 @@ description = "Ontology-as-code compiler for BigQuery Property Graph"
 dependencies = ["jsonschema>=4.23.0", "pyyaml>=6.0.2"]
 
 [project.optional-dependencies]
-bigquery = ["google-cloud-bigquery>=3.25.0"]
+bigquery = ["google-cloud-bigquery>=3.25.0", "urllib3>=2.7.0"]
 
 [project.scripts]
 
@@ -72,6 +72,7 @@ dev = [
   "ssort>=0.16.0",
   "types-PyYAML>=6.0.12",
   "google-cloud-bigquery>=3.25.0",
+  "urllib3>=2.7.0",
 ]
 
 [tool.pyright]

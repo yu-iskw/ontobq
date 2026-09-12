@@ -27,4 +27,4 @@ def test_only_google_adapter_imports_google_cloud() -> None:
         text = path.read_text(encoding="utf-8")
         if "google.cloud" in text or "from google" in text:
             offenders.append(str(path.relative_to(root)))
-    assert offenders == []
+    assert not offenders

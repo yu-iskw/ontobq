@@ -431,44 +431,88 @@ class _BadQueryError(Exception):
 
 
 class _JobConfig:
+    """Duck-typed QueryJobConfig with dry-run flags."""
+
     def __init__(self, dry_run: bool = False, use_query_cache: bool = True) -> None:
         self.dry_run = dry_run
         self.use_query_cache = use_query_cache
 
 
 class _RecordingClient:
-    def __init__(self) -> None:
+    """In-memory BigQuery client that records lookups and dry-run SQL."""
+
+    def __init__(self, job_schema: object | None = None) -> None:
         self.queries: list[str] = []
         self.job_configs: list[_JobConfig] = []
+        self.table_lookups: list[str] = []
+        self.dataset_lookups: list[str] = []
         self.row_reads = 0
+        self._job_schema = (
+            (SimpleNamespace(field_type="TIMESTAMP"),) if job_schema is None else job_schema
+        )
         self.tables = {
             _ORDERS: SimpleNamespace(
                 table_type="TABLE",
                 location="US",
-                schema=(SimpleNamespace(name="order_id", field_type="STRING", mode="REQUIRED"),),
+                schema=(
+                    SimpleNamespace(name="order_id", field_type="STRING", mode="REQUIRED"),
+                    SimpleNamespace(name="created_at", field_type="TIMESTAMP", mode="NULLABLE"),
+                ),
             )
         }
+        self.datasets = {_TARGET: SimpleNamespace(location="US")}
 
     def get_table(self, table_id: str) -> object:
+        self.table_lookups.append(table_id)
         if table_id not in self.tables:
             raise _NotFoundError(table_id)
         return self.tables[table_id]
 
     def get_dataset(self, dataset_id: str) -> object:
-        raise _NotFoundError(dataset_id)
+        self.dataset_lookups.append(dataset_id)
+        if dataset_id not in self.datasets:
+            raise _NotFoundError(dataset_id)
+        return self.datasets[dataset_id]
 
     def query(self, sql: str, job_config: object | None = None) -> object:
         self.queries.append(sql)
         if isinstance(job_config, _JobConfig):
             self.job_configs.append(job_config)
-        return SimpleNamespace(schema=(SimpleNamespace(field_type="TIMESTAMP"),))
+        return SimpleNamespace(schema=self._job_schema)
+
+
+class _CountingInspector:
+    """Delegating inspector that records lookup ids for cache assertions."""
+
+    def __init__(self, inner: FakeBigQueryInspector) -> None:
+        self._inner = inner
+        self.source_ids: list[str] = []
+        self.column_ids: list[str] = []
+        self.location_ids: list[str] = []
+
+    def get_source(self, table_id: str) -> SourceSnapshot:
+        self.source_ids.append(table_id)
+        return self._inner.get_source(table_id)
+
+    def get_columns(self, table_id: str) -> tuple[ColumnSnapshot, ...]:
+        self.column_ids.append(table_id)
+        return self._inner.get_columns(table_id)
+
+    def dry_run_scalar_expression(self, source: str, expression: str) -> ScalarDryRunResult:
+        return self._inner.dry_run_scalar_expression(source, expression)
+
+    def get_location(self, resource: str) -> str | None:
+        self.location_ids.append(resource)
+        return self._inner.get_location(resource)
+
+
+def _client_inspector(client: _RecordingClient) -> ClientInspector:
+    return ClientInspector(client, _NotFoundError, (_NotFoundError, _BadQueryError), _JobConfig)
 
 
 def test_client_inspector_dry_run_records_probe_and_does_not_query_rows() -> None:
     client = _RecordingClient()
-    inspector = ClientInspector(
-        client, _NotFoundError, (_NotFoundError, _BadQueryError), _JobConfig
-    )
+    inspector = _client_inspector(client)
     result = inspector.dry_run_scalar_expression(_ORDERS, "TIMESTAMP(created_at)")
     assert result.ok is True
     assert result.type == "TIMESTAMP"
@@ -479,11 +523,78 @@ def test_client_inspector_dry_run_records_probe_and_does_not_query_rows() -> Non
     assert client.row_reads == 0
 
 
+def test_schema_less_dry_run_is_not_ok() -> None:
+    inspector = _client_inspector(_RecordingClient(job_schema=()))
+    result = inspector.dry_run_scalar_expression(_ORDERS, "TIMESTAMP(created_at)")
+    assert result.ok is False
+    assert result.type is None
+    assert result.error is not None
+
+
+def test_schema_less_dry_run_emits_obq103_not_obq104() -> None:
+    inspector = _client_inspector(_RecordingClient(job_schema=()))
+    diagnostics = validate_bigquery_metadata(
+        load_domain(FIXTURES_DIR / "expression-mapping.yaml"), inspector
+    )
+    assert _paths_for(diagnostics, OBQ103) == (
+        "spec.entities.Order.mapping.bigquery.properties.createdAt",
+    )
+    assert OBQ104 not in _codes(diagnostics)
+
+
+def test_empty_probe_type_emits_obq103_not_obq104() -> None:
+    inspector = _client_inspector(_RecordingClient(job_schema=(SimpleNamespace(field_type=""),)))
+    diagnostics = validate_bigquery_metadata(
+        load_domain(FIXTURES_DIR / "expression-mapping.yaml"), inspector
+    )
+    assert OBQ103 in _codes(diagnostics)
+    assert OBQ104 not in _codes(diagnostics)
+
+
+def test_get_location_for_dataset_does_not_probe_table() -> None:
+    client = _RecordingClient()
+    location = _client_inspector(client).get_location(_TARGET)
+    assert location == "US"
+    assert not client.table_lookups
+    assert client.dataset_lookups == [_TARGET]
+
+
+def test_get_location_for_table_uses_table_path() -> None:
+    client = _RecordingClient()
+    location = _client_inspector(client).get_location(_ORDERS)
+    assert location == "US"
+    assert client.table_lookups == [_ORDERS]
+    assert not client.dataset_lookups
+
+
+def test_validate_caches_source_schema_and_target_location_within_one_call() -> None:
+    counter = _CountingInspector(_inspector())
+    diagnostics = validate_bigquery_metadata(load_domain(FIXTURES_DIR / "commerce.yaml"), counter)
+    assert not diagnostics
+    assert counter.source_ids.count(_CUSTOMERS) == 1
+    assert counter.source_ids.count(_ORDERS) == 1
+    assert counter.column_ids.count(_CUSTOMERS) == 1
+    assert counter.column_ids.count(_ORDERS) == 1
+    assert counter.location_ids == [_TARGET]
+
+
+def test_validate_does_not_cache_inspector_lookups_across_calls() -> None:
+    counter = _CountingInspector(_inspector())
+    domain = load_domain(FIXTURES_DIR / "commerce.yaml")
+    validate_bigquery_metadata(domain, counter)
+    first_sources = len(counter.source_ids)
+    first_locations = len(counter.location_ids)
+    validate_bigquery_metadata(domain, counter)
+    assert len(counter.source_ids) == first_sources + first_sources
+    assert len(counter.location_ids) == first_locations + first_locations
+
+
 def test_client_inspector_missing_table() -> None:
-    inspector = ClientInspector(_RecordingClient(), _NotFoundError, (_NotFoundError,), _JobConfig)
+    inspector = _client_inspector(_RecordingClient())
     snapshot = inspector.get_source("missing.ds.table")
     assert snapshot.exists is False
-    assert inspector.get_columns("missing.ds.table") == ()
+    columns = inspector.get_columns("missing.ds.table")
+    assert len(columns) == 0
 
 
 def test_metadata_modules_are_not_compilers_or_integrity_scanners() -> None:

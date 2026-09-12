@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
@@ -98,9 +99,15 @@ class SdkShapedClient(Protocol):
 
 
 def scalar_expression_dry_run_sql(source: str, expression: str) -> str:
-    """Adapter-private type-probe SQL. Compilers must copy expression text, not this wrapper."""
+    """Adapter-private type-probe SQL. Compilers must copy expression text, not this wrapper.
 
-    return f"SELECT (({expression})) AS __ontobq_type_probe\nFROM `{source}`\nWHERE FALSE"
+    ``source`` is a schema-validated mapped table or view id from Domain IR.
+    ``expression`` is a trusted mapping expression, not untrusted caller SQL.
+    The probe is dry-run only and includes ``WHERE FALSE`` so it never reads rows.
+    """
+
+    # Trusted Domain inputs only (schema-validated source, mapping expression).
+    return f"SELECT (({expression})) AS __ontobq_type_probe FROM `{source}` WHERE FALSE"  # noqa: S608  # nosec B608
 
 
 def canonicalize_bq_type(raw: str) -> str:
@@ -155,11 +162,21 @@ def _columns_from_table(table: object) -> tuple[ColumnSnapshot, ...]:
     return tuple(_column_from_field(field) for field in schema)
 
 
+def _usable_probe_type(schema: object) -> str | None:
+    if not isinstance(schema, Sequence) or isinstance(schema, (str, bytes)) or not schema:
+        return None
+    raw = str(getattr(schema[0], "field_type", "") or "").strip()
+    return canonicalize_bq_type(raw) if raw else None
+
+
 def _schema_result(job: object) -> ScalarDryRunResult:
-    schema = getattr(job, "schema", None) or ()
-    if not schema:
-        return ScalarDryRunResult(ok=True, type=None, error=None)
-    field_type = canonicalize_bq_type(str(getattr(schema[0], "field_type", "")))
+    field_type = _usable_probe_type(getattr(job, "schema", None) or ())
+    if field_type is None:
+        return ScalarDryRunResult(
+            ok=False,
+            type=None,
+            error="dry-run returned no usable expression type",
+        )
     return ScalarDryRunResult(ok=True, type=field_type, error=None)
 
 
@@ -218,6 +235,8 @@ class ClientInspector:
         return canonicalize_location(_optional_str(getattr(dataset, "location", None)))
 
     def get_location(self, resource: str) -> str | None:
+        if resource.count(".") == 1:
+            return self._dataset_location(resource)
         table = self._get_table(resource)
         if table is not None:
             return _table_location(table)

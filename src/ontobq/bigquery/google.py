@@ -16,29 +16,37 @@
 
 from __future__ import annotations
 
-from typing import cast
-
-from google.api_core.exceptions import BadRequest, NotFound
-from google.cloud import bigquery
+import importlib
+from typing import Any, cast
 
 from ontobq.bigquery.inspector import ClientInspector, SdkShapedClient
 
 __all__ = ["GoogleBigQueryInspector"]
 
 
-def _sdk_client(client: object | None) -> SdkShapedClient:
+def _load_bigquery() -> Any:
+    return importlib.import_module("google.cloud.bigquery")
+
+
+def _load_exceptions() -> Any:
+    return importlib.import_module("google.api_core.exceptions")
+
+
+def _sdk_client(client: object | None, sdk: Any) -> SdkShapedClient:
     if client is not None:
         return cast("SdkShapedClient", client)
-    return cast("SdkShapedClient", bigquery.Client())
+    return cast("SdkShapedClient", sdk.Client())
 
 
 class GoogleBigQueryInspector(ClientInspector):
     """Read-only metadata inspector backed by ``google.cloud.bigquery.Client``."""
 
     def __init__(self, client: object | None = None) -> None:
+        sdk = _load_bigquery()
+        errors = _load_exceptions()
         super().__init__(
-            _sdk_client(client),
-            NotFound,
-            (BadRequest, NotFound),
-            bigquery.QueryJobConfig,
+            _sdk_client(client, sdk),
+            errors.NotFound,
+            (errors.BadRequest, errors.NotFound),
+            sdk.QueryJobConfig,
         )
