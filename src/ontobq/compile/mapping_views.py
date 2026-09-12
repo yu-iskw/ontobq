@@ -237,10 +237,18 @@ def _qualified_name(domain: Domain, view_name: str) -> str:
 def _create_view_sql(
     qualified_name: str, projection: tuple[_AliasedSelect, ...], source: str
 ) -> str:
-    body = ",\n".join(f"  {item.sql}" for item in projection)
-    view = _quote_resource(qualified_name)
-    from_clause = _quote_resource(source)
-    return f"CREATE OR REPLACE VIEW {view} AS\nSELECT\n{body}\nFROM {from_clause};\n"
+    body = ",\n".join("  " + item.sql for item in projection)
+    return "".join(
+        (
+            "CREATE OR REPLACE VIEW ",
+            _quote_resource(qualified_name),
+            " AS\nSELECT\n",
+            body,
+            "\nFROM ",
+            _quote_resource(source),
+            ";\n",
+        )
+    )
 
 
 def _render_mapped_value(value: MappingValue) -> str:
