@@ -4,8 +4,12 @@ Ontology-as-code compiler that maps a versioned Domain document onto BigQuery
 Property Graph views.
 
 v1alpha1 loads YAML or JSON Domain documents into a typed intermediate
-representation after JSON Schema validation. Semantic checks, SQL compilation,
-and the CLI land in later issues.
+representation after JSON Schema validation. Read-only BigQuery metadata
+validation (`validate_bigquery_metadata`) reports `OBQ101`-`OBQ105` through
+the shared `Diagnostic` type. The Google Cloud adapter lives in
+`ontobq.bigquery.google` and is an optional extra (`pip install ontobq[bigquery]`).
+Default tests use `FakeBigQueryInspector` and do not need a GCP project.
+Semantic checks, integrity scans, and the CLI land in later issues.
 
 ## Features
 
