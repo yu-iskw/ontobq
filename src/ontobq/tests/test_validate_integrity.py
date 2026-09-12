@@ -9,6 +9,7 @@ import pytest  # pyright: ignore[reportMissingImports]
 from ontobq import (
     FakeBigQueryReadExecutor,
     IntegrityExecutionError,
+    QueryEstimate,
     compile_integrity_queries,
     load_domain,
     validate_integrity,
@@ -19,8 +20,6 @@ from ontobq.validate.integrity import DEFAULT_EVIDENCE_LIMIT
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
-
-    from ontobq.bq.executor import QueryEstimate
 
 
 class _BoomExecutor:
@@ -143,3 +142,78 @@ def test_execution_failure_raises_dedicated_error() -> None:
     message = str(caught.value)
     assert "OBQ101" not in message
     assert "OBQ105" not in message
+    assert isinstance(caught.value.__cause__, RuntimeError)
+
+
+class _DriverError(Exception):
+    """Custom executor failure outside OSError/RuntimeError/ValueError/TypeError."""
+
+
+class _DriverExecutor:
+    def dry_run(self, sql: str) -> QueryEstimate:
+        raise _DriverError(f"rpc failed: {sql[:12]}")
+
+    def query(self, sql: str, *, max_rows: int) -> Sequence[Mapping[str, object]]:
+        raise _DriverError(f"should not query {sql} max_rows={max_rows}")
+
+
+class _QueryDriverExecutor:
+    def dry_run(self, sql: str) -> QueryEstimate:
+        return QueryEstimate(bytes_processed=len(sql) * 0)
+
+    def query(self, sql: str, *, max_rows: int) -> Sequence[Mapping[str, object]]:
+        raise _DriverError(f"rows unavailable {sql[:8]} {max_rows}")
+
+
+def test_custom_executor_exception_is_wrapped() -> None:
+    domain = load_domain(FIXTURES_DIR / "commerce.yaml")
+    with pytest.raises(IntegrityExecutionError) as caught:
+        validate_integrity(domain, _DriverExecutor())
+    assert caught.value.query.code == "OBQ201"
+    assert isinstance(caught.value.__cause__, _DriverError)
+
+
+def test_custom_query_exception_is_wrapped() -> None:
+    domain = load_domain(FIXTURES_DIR / "commerce.yaml")
+    with pytest.raises(IntegrityExecutionError) as caught:
+        validate_integrity(domain, _QueryDriverExecutor())
+    assert caught.value.query.element == "Customer"
+    assert isinstance(caught.value.__cause__, _DriverError)
+
+
+def test_malformed_total_violations_raises_integrity_error() -> None:
+    domain = load_domain(FIXTURES_DIR / "commerce.yaml")
+    query = compile_integrity_queries(domain)[0]
+    executor = FakeBigQueryReadExecutor(
+        {query.sql: ({"id": "alice", "violation_count": 1, "total_violations": "invalid"},)}
+    )
+    with pytest.raises(IntegrityExecutionError) as caught:
+        validate_integrity(domain, executor)
+    assert caught.value.query == query
+    assert isinstance(caught.value.__cause__, ValueError)
+    assert "total_violations" in str(caught.value.__cause__)
+
+
+def test_boolean_total_violations_raises_integrity_error() -> None:
+    domain = load_domain(FIXTURES_DIR / "commerce.yaml")
+    query = compile_integrity_queries(domain)[0]
+    executor = FakeBigQueryReadExecutor(
+        {query.sql: ({"id": "alice", "violation_count": 1, "total_violations": True},)}
+    )
+    with pytest.raises(IntegrityExecutionError) as caught:
+        validate_integrity(domain, executor)
+    assert caught.value.query == query
+    assert isinstance(caught.value.__cause__, TypeError)
+
+
+def test_malformed_violation_count_raises_integrity_error() -> None:
+    domain = load_domain(FIXTURES_DIR / "commerce.yaml")
+    query = compile_integrity_queries(domain)[0]
+    executor = FakeBigQueryReadExecutor(
+        {query.sql: ({"id": "alice", "violation_count": "bad", "total_violations": 1},)}
+    )
+    with pytest.raises(IntegrityExecutionError) as caught:
+        validate_integrity(domain, executor)
+    assert caught.value.query.code == query.code
+    assert isinstance(caught.value.__cause__, ValueError)
+    assert "violation_count" in str(caught.value.__cause__)

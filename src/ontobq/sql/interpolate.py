@@ -32,6 +32,108 @@ if TYPE_CHECKING:
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _QUOTES = "'\"`"
 _BACKTICK = "`"
+# GoogleSQL reserved keywords (https://github.com/google/googlesql lexical.md).
+_RESERVED_KEYWORDS = frozenset(
+    [
+        "ALL",
+        "AND",
+        "ANY",
+        "ARRAY",
+        "AS",
+        "ASC",
+        "ASSERT_ROWS_MODIFIED",
+        "AT",
+        "BETWEEN",
+        "BY",
+        "CASE",
+        "CAST",
+        "COLLATE",
+        "CONTAINS",
+        "CREATE",
+        "CROSS",
+        "CUBE",
+        "CURRENT",
+        "DEFAULT",
+        "DEFINE",
+        "DESC",
+        "DISTINCT",
+        "ELSE",
+        "END",
+        "ENUM",
+        "ESCAPE",
+        "EXCEPT",
+        "EXCLUDE",
+        "EXISTS",
+        "EXTRACT",
+        "FALSE",
+        "FETCH",
+        "FOLLOWING",
+        "FOR",
+        "FROM",
+        "FULL",
+        "GRAPH_TABLE",
+        "GROUP",
+        "GROUPING",
+        "GROUPS",
+        "HASH",
+        "HAVING",
+        "IF",
+        "IGNORE",
+        "IN",
+        "INNER",
+        "INTERSECT",
+        "INTERVAL",
+        "INTO",
+        "IS",
+        "JOIN",
+        "LATERAL",
+        "LEFT",
+        "LIKE",
+        "LIMIT",
+        "LOOKUP",
+        "MERGE",
+        "NATURAL",
+        "NEW",
+        "NO",
+        "NOT",
+        "NULL",
+        "NULLS",
+        "OF",
+        "ON",
+        "OR",
+        "ORDER",
+        "OUTER",
+        "OVER",
+        "PARTITION",
+        "PRECEDING",
+        "PROTO",
+        "QUALIFY",
+        "RANGE",
+        "RECURSIVE",
+        "RESPECT",
+        "RIGHT",
+        "ROLLUP",
+        "ROWS",
+        "SELECT",
+        "SET",
+        "SOME",
+        "STRUCT",
+        "TABLESAMPLE",
+        "THEN",
+        "TO",
+        "TREAT",
+        "TRUE",
+        "UNBOUNDED",
+        "UNION",
+        "UNNEST",
+        "USING",
+        "WHEN",
+        "WHERE",
+        "WINDOW",
+        "WITH",
+        "WITHIN",
+    ]
+)
 
 
 def quote_resource(name: str) -> str:
@@ -42,15 +144,27 @@ def quote_resource(name: str) -> str:
 
 
 def quote_identifier(identifier: str) -> str:
-    """Return ``identifier`` unquoted when it is a safe GoogleSQL name."""
+    """Return ``identifier`` unquoted when it is a safe, non-reserved name."""
 
-    if _SAFE_IDENTIFIER.fullmatch(identifier) is not None:
+    safe = _SAFE_IDENTIFIER.fullmatch(identifier) is not None
+    if safe and identifier.upper() not in _RESERVED_KEYWORDS:
         return identifier
     return quote_resource(identifier)
 
 
 def _is_line_comment_at(text: str, index: int) -> bool:
     return text.startswith("--", index)
+
+
+def _is_block_comment_at(text: str, index: int) -> bool:
+    return text.startswith("/*", index)
+
+
+def _skip_block_comment(text: str, start: int) -> int:
+    end = text.find("*/", start + 2)
+    if end == -1:
+        raise ValueError("unterminated block comment in expression mapping")
+    return end + 2
 
 
 def _skip_line_comment(text: str, start: int) -> int:
@@ -79,12 +193,18 @@ def _skip_quoted(text: str, start: int) -> int:
     return len(text)
 
 
+def _skip_comment(expression: str, index: int) -> int | None:
+    if _is_line_comment_at(expression, index):
+        return _skip_line_comment(expression, index)
+    if not _is_block_comment_at(expression, index):
+        return None
+    return _skip_block_comment(expression, index)
+
+
 def _skip_token(expression: str, index: int) -> int | None:
     if expression[index] in _QUOTES:
         return _skip_quoted(expression, index)
-    if _is_line_comment_at(expression, index):
-        return _skip_line_comment(expression, index)
-    return None
+    return _skip_comment(expression, index)
 
 
 def _next_paren_depth(char: str, depth: int) -> int:
@@ -177,3 +297,14 @@ def select_item(value: MappingValue, alias: str) -> str:
     """Return ``{rendered} AS {alias}``, breaking before ``AS`` after ``--``."""
 
     return render_mapping_value(value) + _alias_clause(value, alias)
+
+
+def select_wrapped_item(function: str, value: MappingValue, alias: str) -> str:
+    """Return ``FUNCTION({rendered}) AS {alias}`` for groupable evidence."""
+
+    if _SAFE_IDENTIFIER.fullmatch(function) is None:
+        raise ValueError(f"invalid SQL function name {function!r}")
+    rendered = render_mapping_value(value)
+    if _mapped_value_ends_in_line_comment(value):
+        return f"{function}({rendered}\n){_alias_clause(value, alias)}"
+    return f"{function}({rendered}){_alias_clause(value, alias)}"

@@ -379,3 +379,108 @@ def test_expression_mapping_fixture_key_still_uses_column() -> None:
         "Order",
     ).sql
     assert "order_id AS id" in sql
+
+
+def _entity_only_domain(name: str, entity: EntityDefinition) -> Domain:
+    return Domain(
+        api_version="ontobq.dev/v1alpha1",
+        kind="Domain",
+        metadata=Metadata(name="commerce"),
+        bigquery=BigQueryTarget(project="my-project", dataset="semantic", graph="commerce_graph"),
+        entities={name: entity},
+        relationships={},
+    )
+
+
+def test_reserved_alias_and_source_column_are_backticked() -> None:
+    entity = EntityDefinition(
+        key=("SELECT",),
+        properties={"SELECT": PropertyDefinition(type=PropertyType.STRING, nullable=False)},
+        mapping=BigQueryEntityMapping(
+            source="my-project.raw.customers",
+            properties={"SELECT": ColumnMapping(column="FROM")},
+        ),
+    )
+    sql = _by_code(
+        compile_integrity_queries(_entity_only_domain("Customer", entity)),
+        "OBQ201",
+        "Customer",
+    ).sql
+    assert "`FROM` AS `SELECT`" in sql
+    assert "projected.`SELECT` IS NULL" in sql
+    assert "GROUP BY\n  projected.`SELECT`" in sql
+    assert "ORDER BY\n  violation_count DESC,\n  projected.`SELECT`" in sql
+
+
+def test_reserved_source_column_with_safe_alias_is_backticked() -> None:
+    entity = EntityDefinition(
+        key=("id",),
+        properties={"id": PropertyDefinition(type=PropertyType.STRING, nullable=False)},
+        mapping=BigQueryEntityMapping(
+            source="my-project.raw.customers",
+            properties={"id": ColumnMapping(column="FROM")},
+        ),
+    )
+    sql = _by_code(
+        compile_integrity_queries(_entity_only_domain("Customer", entity)),
+        "OBQ202",
+        "Customer",
+    ).sql
+    assert "`FROM` AS id" in sql
+    assert "projected.id IS NOT NULL" in sql
+
+
+def _typed_key_entity(prop_type: PropertyType, column: str, alias: str) -> EntityDefinition:
+    return EntityDefinition(
+        key=(alias,),
+        properties={alias: PropertyDefinition(type=prop_type, nullable=False)},
+        mapping=BigQueryEntityMapping(
+            source="my-project.raw.documents",
+            properties={alias: ColumnMapping(column=column)},
+        ),
+    )
+
+
+def test_json_entity_key_uses_to_json_string() -> None:
+    entity = _typed_key_entity(PropertyType.JSON, "payload", "payload")
+    domain = _entity_only_domain("Document", entity)
+    sql = _by_code(compile_integrity_queries(domain), "OBQ202", "Document").sql
+    assert "TO_JSON_STRING(payload) AS payload" in sql
+    assert "GROUP BY\n  projected.payload" in sql
+    assert "ORDER BY\n  violation_count DESC,\n  projected.payload" in sql
+
+
+def test_geography_entity_key_uses_st_asgeojson() -> None:
+    domain = _entity_only_domain("Place", _typed_key_entity(PropertyType.GEOGRAPHY, "geom", "geom"))
+    sql = _by_code(compile_integrity_queries(domain), "OBQ201", "Place").sql
+    assert "ST_ASGEOJSON(geom) AS geom" in sql
+    assert "projected.geom IS NULL" in sql
+    assert "GROUP BY\n  projected.geom" in sql
+
+
+def test_json_orphan_check_wraps_edge_and_node_keys() -> None:
+    document = _typed_key_entity(PropertyType.JSON, "payload", "payload")
+    cites = RelationshipDefinition(
+        from_entity="Document",
+        to_entity="Document",
+        mapping=BigQueryRelationshipMapping(
+            source="my-project.raw.citations",
+            key=(ColumnMapping(column="cite_id"),),
+            from_endpoint={"payload": ColumnMapping(column="from_payload")},
+            to_endpoint={"payload": ColumnMapping(column="to_payload")},
+            properties={},
+        ),
+        properties={},
+    )
+    domain = Domain(
+        api_version="ontobq.dev/v1alpha1",
+        kind="Domain",
+        metadata=Metadata(name="commerce"),
+        bigquery=BigQueryTarget(project="my-project", dataset="semantic", graph="commerce_graph"),
+        entities={"Document": document},
+        relationships={"CITES": cites},
+    )
+    sql = _by_code(compile_integrity_queries(domain), "OBQ205", "CITES").sql
+    assert "TO_JSON_STRING(from_payload) AS payload" in sql
+    assert "TO_JSON_STRING(payload) AS payload" in sql
+    assert "ON edge.payload = node.payload" in sql

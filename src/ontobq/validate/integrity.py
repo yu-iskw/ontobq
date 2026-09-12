@@ -37,7 +37,13 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, NamedTuple
 
 from ontobq.diagnostics import Diagnostic, Severity
-from ontobq.sql.interpolate import quote_identifier, quote_resource, select_item
+from ontobq.ir import PropertyType
+from ontobq.sql.interpolate import (
+    quote_identifier,
+    quote_resource,
+    select_item,
+    select_wrapped_item,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -56,7 +62,10 @@ _MESSAGES = {
     "OBQ206": "relationship destination endpoint does not resolve to a node",
 }
 
-_EXECUTOR_ERRORS = (OSError, RuntimeError, ValueError, TypeError)
+_GROUPABLE_WRAPPERS = {
+    PropertyType.JSON: "TO_JSON_STRING",
+    PropertyType.GEOGRAPHY: "ST_ASGEOJSON",
+}
 
 
 @dataclass(frozen=True)
@@ -95,7 +104,7 @@ class _SourceProjection(NamedTuple):
     """Inner SELECT against one mapping source."""
 
     source: str
-    items: tuple[tuple[MappingValue, str], ...]
+    selects: tuple[str, ...]
 
 
 def _grouped_sql(
@@ -138,21 +147,41 @@ def _unique_sql(inner: str, keys: tuple[str, ...], limit: int) -> str:
     return _grouped_sql("FROM " + inner, keys, where_sql, limit, "COUNT(*) > 1")
 
 
-def _inner_from(
-    source: str,
-    items: tuple[tuple[MappingValue, str], ...],
-    alias: str,
-) -> str:
-    body = ",\n    ".join(select_item(value, name) for value, name in items)
+def _inner_from(source: str, selects: tuple[str, ...], alias: str) -> str:
     return "".join(
         (
             "(\n  SELECT\n    ",
-            body,
+            ",\n    ".join(selects),
             "\n  FROM ",
             quote_resource(source),
             "\n) AS ",
             alias,
         )
+    )
+
+
+def _property_type(entity: EntityDefinition, name: str) -> PropertyType | None:
+    prop = entity.properties.get(name)
+    if prop is None:
+        return None
+    return prop.type
+
+
+def _select_for_property(value: MappingValue, alias: str, prop_type: PropertyType | None) -> str:
+    wrapper = None if prop_type is None else _GROUPABLE_WRAPPERS.get(prop_type)
+    if wrapper is None:
+        return select_item(value, alias)
+    return select_wrapped_item(wrapper, value, alias)
+
+
+def _typed_selects(
+    values: Mapping[str, MappingValue],
+    entity: EntityDefinition,
+    where: str,
+) -> tuple[str, ...]:
+    items = _mapped_items(values, entity.key, where)
+    return tuple(
+        _select_for_property(value, alias, _property_type(entity, alias)) for value, alias in items
     )
 
 
@@ -184,8 +213,8 @@ def _qualified(table: str, aliases: tuple[str, ...]) -> tuple[str, ...]:
 def _entity_queries(
     name: str, entity: EntityDefinition, limit: int
 ) -> tuple[IntegrityQuery, IntegrityQuery]:
-    items = _mapped_items(entity.mapping.properties, entity.key, "entity key")
-    inner = _inner_from(entity.mapping.source, items, "projected")
+    selects = _typed_selects(entity.mapping.properties, entity, "entity key")
+    inner = _inner_from(entity.mapping.source, selects, "projected")
     keys = _qualified("projected", entity.key)
     path = f"spec.entities.{name}.key"
     return (
@@ -207,7 +236,8 @@ def _relationship_key_queries(
 ) -> tuple[IntegrityQuery, IntegrityQuery]:
     items = _relationship_key_items(relationship.mapping.key)
     aliases = tuple(alias for _, alias in items)
-    inner = _inner_from(relationship.mapping.source, items, "projected")
+    selects = tuple(select_item(value, alias) for value, alias in items)
+    inner = _inner_from(relationship.mapping.source, selects, "projected")
     keys = _qualified("projected", aliases)
     path = f"spec.relationships.{name}.mapping.bigquery.key"
     return (
@@ -229,9 +259,9 @@ def _orphan_sql(
     from_sql = "".join(
         (
             "FROM ",
-            _inner_from(edge.source, edge.items, "edge"),
+            _inner_from(edge.source, edge.selects, "edge"),
             "\nLEFT JOIN ",
-            _inner_from(node.source, node.items, "node"),
+            _inner_from(node.source, node.selects, "node"),
             "\nON ",
             on_sql,
         )
@@ -246,10 +276,10 @@ def _orphan_from_endpoint(
     where: str,
     limit: int,
 ) -> str:
-    edge = _SourceProjection(edge_source, _mapped_items(endpoint, entity.key, where))
+    edge = _SourceProjection(edge_source, _typed_selects(endpoint, entity, where))
     node = _SourceProjection(
         entity.mapping.source,
-        _mapped_items(entity.mapping.properties, entity.key, "entity key"),
+        _typed_selects(entity.mapping.properties, entity, "entity key"),
     )
     return _orphan_sql(edge, node, entity.key, limit)
 
@@ -338,17 +368,24 @@ def _render_evidence_value(value: object) -> str:
     return str(value)
 
 
-def _as_int(value: object, default: int) -> int:
-    if isinstance(value, int) and not isinstance(value, bool):
-        return value
-    if isinstance(value, str):
+def _parse_int_text(value: str, field: str) -> int:
+    try:
         return int(value)
-    return default
+    except ValueError as exc:
+        raise ValueError(f"{field} must be an integer") from exc
+
+
+def _parse_int(value: object, field: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int | str):
+        raise TypeError(f"{field} must be an integer")
+    if isinstance(value, int):
+        return value
+    return _parse_int_text(value, field)
 
 
 def _row_evidence(aliases: tuple[str, ...], row: Mapping[str, object]) -> str:
     keys = " ".join("".join((name, "=", _render_evidence_value(row.get(name)))) for name in aliases)
-    count = _as_int(row.get("violation_count"), 1)
+    count = _parse_int(row.get("violation_count"), "violation_count")
     return f"{keys} count={count}"
 
 
@@ -367,7 +404,7 @@ def _diagnostic_from_rows(
 ) -> Diagnostic | None:
     if not rows:
         return None
-    total = _as_int(rows[0].get("total_violations"), len(rows))
+    total = _parse_int(rows[0].get("total_violations"), "total_violations")
     if total <= 0:
         return None
     return Diagnostic(
@@ -383,10 +420,9 @@ def _run_query(executor: BigQueryReadExecutor, query: IntegrityQuery) -> Diagnos
     try:
         executor.dry_run(query.sql)
         rows = executor.query(query.sql, max_rows=query.evidence_limit)
-    except _EXECUTOR_ERRORS as exc:
-        raise IntegrityExecutionError(query) from exc
-    else:
         return _diagnostic_from_rows(query, rows)
+    except Exception as exc:
+        raise IntegrityExecutionError(query) from exc
 
 
 def validate_integrity(

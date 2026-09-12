@@ -202,6 +202,16 @@ def test_comma_or_as_inside_line_comment_is_still_scalar() -> None:
     assert "'-- not comment' AS id" in quoted.sql
 
 
+def test_block_comment_may_contain_as_and_comma() -> None:
+    sql = compile_mapping_views(_expression_domain("id /* AS x, y */"))[0].sql
+    assert "id /* AS x, y */ AS id" in sql
+
+
+def test_unterminated_block_comment_is_rejected() -> None:
+    with pytest.raises(ValueError, match="unterminated block comment"):
+        compile_mapping_views(_expression_domain("id /* oops"))
+
+
 def test_recompile_is_byte_for_byte_stable() -> None:
     domain = load_domain(FIXTURES_DIR / "commerce.yaml")
     first = compile_mapping_views(domain)
