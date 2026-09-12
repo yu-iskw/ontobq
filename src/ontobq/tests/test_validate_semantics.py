@@ -205,6 +205,15 @@ def test_obq008_graph_element_alias_collision() -> None:
     assert diagnostics[0].evidence == ("PLACED",)
 
 
+def test_obq008_graph_element_alias_casefold_collision() -> None:
+    domain = _load_semantics("obq008-alias-casefold.yaml")
+    assert set(domain.entities) == {"Customer"}
+    assert set(domain.relationships) == {"customer"}
+    diagnostics = _assert_single_code(domain, "OBQ008")
+    assert "Customer" in diagnostics[0].evidence
+    assert "customer" in diagnostics[0].evidence
+
+
 def test_obq008_graph_name_collides_with_view() -> None:
     view = node_view_name("commerce", "Customer")
     diagnostics = validate_semantics(_customer_only_domain(view))

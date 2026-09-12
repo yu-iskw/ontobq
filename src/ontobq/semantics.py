@@ -301,29 +301,34 @@ def _graph_versus_view_collisions(domain: Domain) -> tuple[Diagnostic, ...]:
     )
 
 
-def _graph_element_alias_collisions(domain: Domain) -> tuple[Diagnostic, ...]:
-    overlap = set(domain.entities) & set(domain.relationships)
-    return tuple(
-        _error(
-            "OBQ008",
-            f"spec.entities.{name}",
-            "generated BigQuery object-name collision",
-            (name,),
-        )
-        for name in sorted(overlap)
-    )
-
-
 def _append_unique(bucket: list[str], name: str) -> None:
     if name not in bucket:
         bucket.append(name)
 
 
-def _casefold_groups(names: tuple[str, ...]) -> tuple[tuple[str, ...], ...]:
+def _names_by_casefold(names: tuple[str, ...]) -> dict[str, tuple[str, ...]]:
     grouped: dict[str, list[str]] = {}
     for name in names:
         _append_unique(grouped.setdefault(name.casefold(), []), name)
-    return tuple(tuple(sorted(bucket)) for bucket in grouped.values() if len(bucket) > 1)
+    return {key: tuple(sorted(bucket)) for key, bucket in grouped.items()}
+
+
+def _graph_element_alias_collisions(domain: Domain) -> tuple[Diagnostic, ...]:
+    entities = _names_by_casefold(tuple(domain.entities))
+    relationships = _names_by_casefold(tuple(domain.relationships))
+    return tuple(
+        _error(
+            "OBQ008",
+            f"spec.entities.{entities[key][0]}",
+            "generated BigQuery object-name collision",
+            tuple(sorted({*entities[key], *relationships[key]})),
+        )
+        for key in sorted(set(entities) & set(relationships))
+    )
+
+
+def _casefold_groups(names: tuple[str, ...]) -> tuple[tuple[str, ...], ...]:
+    return tuple(bucket for bucket in _names_by_casefold(names).values() if len(bucket) > 1)
 
 
 def _casefold_collisions(names: tuple[str, ...], path: str) -> tuple[Diagnostic, ...]:
