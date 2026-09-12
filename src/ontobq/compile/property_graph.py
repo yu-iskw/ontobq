@@ -56,13 +56,11 @@ def compile_property_graph(
     """Return one property-graph artifact from IR plus mapping-view artifacts.
 
     Node and edge order follow IR insertion order. Identical IR and artifacts
-    yield byte-for-byte identical SQL. Missing artifacts or a missing graph
-    name raise ``ValueError``.
+    yield byte-for-byte identical SQL. Missing artifacts, a missing or dotted
+    graph name, or duplicate or undeclared node keys raise ``ValueError``.
     """
 
-    graph_name = domain.bigquery.graph
-    if not graph_name:
-        raise ValueError("missing spec.bigquery.graph")
+    graph_name = _require_graph_name(domain.bigquery.graph)
     index = _artifact_index(mapping_view_artifacts)
     nodes = tuple(_render_node(name, entity, index) for name, entity in domain.entities.items())
     edges = tuple(
@@ -70,6 +68,16 @@ def compile_property_graph(
         for name, relationship in domain.relationships.items()
     )
     return _graph_artifact(domain, graph_name, index, nodes, edges)
+
+
+def _require_graph_name(graph_name: str) -> str:
+    if not graph_name:
+        raise ValueError("missing spec.bigquery.graph")
+    if _SAFE_IDENTIFIER.fullmatch(graph_name) is None:
+        raise ValueError(
+            f"invalid spec.bigquery.graph {graph_name!r}: must be one BigQuery identifier component"
+        )
+    return graph_name
 
 
 def _artifact_index(
@@ -133,14 +141,46 @@ def _render_node(
     index: Mapping[tuple[str, str], MappingViewArtifact],
 ) -> str:
     artifact = _require_artifact(index, "entity", name)
+    key = _validated_node_key(name, entity, artifact)
     lines = (
         _TABLE_INDENT + _quote_resource(artifact.qualified_name),
         _CLAUSE_INDENT + _as_clause(name),
-        _CLAUSE_INDENT + _paren_list("KEY", entity.key),
+        _CLAUSE_INDENT + _paren_list("KEY", key),
         _CLAUSE_INDENT + _label_clause(name),
         _CLAUSE_INDENT + _paren_list("PROPERTIES", tuple(entity.properties)),
     )
     return "\n".join(lines)
+
+
+def _validated_node_key(
+    name: str,
+    entity: EntityDefinition,
+    artifact: MappingViewArtifact,
+) -> tuple[str, ...]:
+    key = entity.key
+    _reject_duplicate_keys(name, key)
+    _reject_undeclared_keys(name, key, entity, artifact)
+    return key
+
+
+def _reject_duplicate_keys(entity_name: str, key: tuple[str, ...]) -> None:
+    seen: set[str] = set()
+    for column in key:
+        if column in seen:
+            raise ValueError(f"duplicate key {column!r} on entity {entity_name!r}")
+        seen.add(column)
+
+
+def _reject_undeclared_keys(
+    entity_name: str,
+    key: tuple[str, ...],
+    entity: EntityDefinition,
+    artifact: MappingViewArtifact,
+) -> None:
+    allowed = set(entity.properties) | set(artifact.output_columns)
+    for column in key:
+        if column not in allowed:
+            raise ValueError(f"undeclared key {column!r} on entity {entity_name!r}")
 
 
 def _render_edge(

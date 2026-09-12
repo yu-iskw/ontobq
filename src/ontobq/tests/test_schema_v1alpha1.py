@@ -98,6 +98,30 @@ def test_schema_identifier_name_pattern() -> None:
     assert "commerce-domain" in joined or "name" in joined
 
 
+def test_schema_entity_key_unique_items() -> None:
+    key = load_v1alpha1_schema()["$defs"]["EntityDefinition"]["properties"]["key"]
+    assert key["uniqueItems"] is True
+
+
+def test_schema_graph_is_identifier() -> None:
+    graph = load_v1alpha1_schema()["$defs"]["BigQueryTarget"]["properties"]["graph"]
+    assert graph == {"$ref": "#/$defs/Identifier"}
+
+
+def test_schema_duplicate_entity_key_fails() -> None:
+    document = _load_yaml("commerce.yaml")
+    assert isinstance(document, dict)
+    document["spec"]["entities"]["Customer"]["key"] = ["id", "id"]
+    assert structural_diagnostics(document)
+
+
+def test_schema_dotted_graph_fails() -> None:
+    document = _load_yaml("commerce.yaml")
+    assert isinstance(document, dict)
+    document["spec"]["bigquery"]["graph"] = "sales.graph"
+    assert structural_diagnostics(document)
+
+
 def test_schema_unknown_entity_ref_still_structurally_valid() -> None:
     load_domain(FIXTURES_DIR / "unknown-entity-ref.yaml")
 

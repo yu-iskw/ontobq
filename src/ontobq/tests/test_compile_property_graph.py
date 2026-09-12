@@ -225,6 +225,42 @@ def test_missing_graph_name_raises() -> None:
         compile_property_graph(broken, compile_mapping_views(domain))
 
 
+def test_dotted_graph_name_raises() -> None:
+    domain = load_domain(FIXTURES_DIR / "commerce.yaml")
+    broken = _with_graph(domain, "sales.graph")
+    with pytest.raises(
+        ValueError,
+        match=r"invalid spec\.bigquery\.graph 'sales\.graph': "
+        r"must be one BigQuery identifier component",
+    ):
+        compile_property_graph(broken, compile_mapping_views(domain))
+
+
+def test_invalid_graph_name_raises() -> None:
+    domain = load_domain(FIXTURES_DIR / "commerce.yaml")
+    broken = _with_graph(domain, "sales-graph")
+    with pytest.raises(
+        ValueError,
+        match=r"invalid spec\.bigquery\.graph 'sales-graph': "
+        r"must be one BigQuery identifier component",
+    ):
+        compile_property_graph(broken, compile_mapping_views(domain))
+
+
+def test_duplicate_node_key_raises() -> None:
+    domain = load_domain(FIXTURES_DIR / "commerce.yaml")
+    broken = _with_customer_key(domain, ("id", "id"))
+    with pytest.raises(ValueError, match="duplicate key 'id' on entity 'Customer'"):
+        compile_property_graph(broken, compile_mapping_views(domain))
+
+
+def test_undeclared_node_key_raises() -> None:
+    domain = load_domain(FIXTURES_DIR / "commerce.yaml")
+    broken = _with_customer_key(domain, ("ghost",))
+    with pytest.raises(ValueError, match="undeclared key 'ghost' on entity 'Customer'"):
+        compile_property_graph(broken, compile_mapping_views(domain))
+
+
 def test_unknown_endpoint_entity_raises() -> None:
     domain = load_domain(FIXTURES_DIR / "commerce.yaml")
     views = compile_mapping_views(domain)
@@ -267,6 +303,39 @@ def test_hyphenated_semantic_name_is_quoted() -> None:
     sql = _compile(domain).sql
     assert "AS `Bad-Name`" in sql
     assert "LABEL `Bad-Name`" in sql
+
+
+def _with_graph(domain: Domain, graph: str) -> Domain:
+    return Domain(
+        api_version=domain.api_version,
+        kind=domain.kind,
+        metadata=domain.metadata,
+        bigquery=BigQueryTarget(
+            project=domain.bigquery.project,
+            dataset=domain.bigquery.dataset,
+            graph=graph,
+        ),
+        entities=domain.entities,
+        relationships=domain.relationships,
+    )
+
+
+def _with_customer_key(domain: Domain, key: tuple[str, ...]) -> Domain:
+    customer = domain.entities["Customer"]
+    entity = EntityDefinition(
+        key=key,
+        properties=customer.properties,
+        mapping=customer.mapping,
+        description=customer.description,
+    )
+    return Domain(
+        api_version=domain.api_version,
+        kind=domain.kind,
+        metadata=domain.metadata,
+        bigquery=domain.bigquery,
+        entities={**domain.entities, "Customer": entity},
+        relationships=domain.relationships,
+    )
 
 
 def _artifact(views: tuple[MappingViewArtifact, ...], name: str) -> MappingViewArtifact:

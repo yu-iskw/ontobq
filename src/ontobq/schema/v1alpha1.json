@@ -72,7 +72,7 @@
       "properties": {
         "project": { "type": "string", "minLength": 1 },
         "dataset": { "type": "string", "minLength": 1 },
-        "graph": { "type": "string", "minLength": 1 }
+        "graph": { "$ref": "#/$defs/Identifier" }
       }
     },
     "PropertyDefinition": {
@@ -132,6 +132,7 @@
         "key": {
           "type": "array",
           "minItems": 1,
+          "uniqueItems": true,
           "items": { "$ref": "#/$defs/Identifier" }
         },
         "properties": { "$ref": "#/$defs/PropertyMap" },
