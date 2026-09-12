@@ -245,6 +245,39 @@ def test_missing_property_mapping_raises() -> None:
         compile_mapping_views(_with_entities(domain, {"Customer": broken}))
 
 
+def test_case_only_entity_view_collision_is_rejected() -> None:
+    base = _id_entity_domain("Customer", "my-project.raw.customers", ColumnMapping(column="id"))
+    entity = base.entities["Customer"]
+    domain = _with_entities(base, {"Customer": entity, "customer": entity})
+    with pytest.raises(ValueError, match="duplicate mapping view target") as caught:
+        compile_mapping_views(domain)
+    message = str(caught.value)
+    assert "OBQ008" not in message
+    assert "Customer" in message
+    assert "customer" in message
+    assert node_view_name(domain.metadata.name, "Customer") in message
+
+
+def test_case_only_relationship_view_collision_is_rejected() -> None:
+    base = _line_item_domain()
+    contains = base.relationships["CONTAINS"]
+    domain = Domain(
+        api_version=base.api_version,
+        kind=base.kind,
+        metadata=base.metadata,
+        bigquery=base.bigquery,
+        entities=base.entities,
+        relationships={"CONTAINS": contains, "contains": contains},
+    )
+    with pytest.raises(ValueError, match="duplicate mapping view target") as caught:
+        compile_mapping_views(domain)
+    message = str(caught.value)
+    assert "OBQ008" not in message
+    assert "CONTAINS" in message
+    assert "contains" in message
+    assert edge_view_name(domain.metadata.name, "CONTAINS") in message
+
+
 def test_unknown_relationship_endpoint_entity_raises() -> None:
     domain = load_domain(FIXTURES_DIR / "commerce.yaml")
     placed = domain.relationships["PLACED"]

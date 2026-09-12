@@ -88,14 +88,27 @@ def compile_mapping_views(domain: Domain) -> tuple[MappingViewArtifact, ...]:
     byte-for-byte identical SQL. Invalid IR raises ``ValueError``.
     """
 
-    entities = tuple(
+    artifacts = tuple(
         _compile_entity(domain, name, entity) for name, entity in domain.entities.items()
-    )
-    relationships = tuple(
+    ) + tuple(
         _compile_relationship(domain, name, relationship)
         for name, relationship in domain.relationships.items()
     )
-    return entities + relationships
+    _reject_duplicate_qualified_names(artifacts)
+    return artifacts
+
+
+def _reject_duplicate_qualified_names(artifacts: tuple[MappingViewArtifact, ...]) -> None:
+    """Raise when two semantic objects normalize to the same view target."""
+
+    seen: dict[str, str] = {}
+    for artifact in artifacts:
+        previous = seen.setdefault(artifact.qualified_name, artifact.semantic_name)
+        if previous != artifact.semantic_name:
+            raise ValueError(
+                "duplicate mapping view target "
+                f"{artifact.qualified_name!r} for {previous!r} and {artifact.semantic_name!r}"
+            )
 
 
 def _compile_entity(domain: Domain, name: str, entity: EntityDefinition) -> MappingViewArtifact:
