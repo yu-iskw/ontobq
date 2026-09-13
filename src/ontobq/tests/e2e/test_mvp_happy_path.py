@@ -59,6 +59,21 @@ def test_domain_loads_structurally(e2e_live: LiveE2E) -> None:
     assert tuple(domain.relationships) == ("PLACED", "CONTAINS", "OF")
 
 
+def test_read_clients_resolve_to_the_gated_project(e2e_live: LiveE2E) -> None:
+    """Inspector and read-executor must never fall back to ADC's default project.
+
+    Both are constructed in ``conftest._build_live`` from one
+    ``bigquery.Client(project=...)`` shared with the mutator; assert the
+    underlying client's own ``project`` (not just query text) is the gated
+    ``ONTOBQ_E2E_PROJECT``, so metadata dry runs and integrity/GQL queries
+    cannot silently run against (and bill) a different project.
+    """
+
+    assert e2e_live.inspector._client.project == e2e_live.project
+    assert e2e_live.query_executor._client.project == e2e_live.project
+    assert e2e_live.mutator.identity.project == e2e_live.project
+
+
 def test_four_validation_layers_pass(e2e_live: LiveE2E) -> None:
     result = validate_domain(
         e2e_live.domain_path,
