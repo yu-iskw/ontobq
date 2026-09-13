@@ -24,14 +24,16 @@ Customer
  Product
 ```
 
-| Item                   | Freeze                                                                                    |
-| ---------------------- | ----------------------------------------------------------------------------------------- |
-| Domain `metadata.name` | `commerce_e2e` → views `_ontobq_commerce_e2e_n_*` / `_e_*`                                |
-| Graph object           | `${ONTOBQ_E2E_GRAPH}` default **`commerce_e2e_graph`** (must not collide with view names) |
-| Composite key          | OrderItem `[orderId, sku]`; `CONTAINS` and `OF` endpoints use the full tuple              |
-| Expression             | `TIMESTAMP(created_at)` on Order.`createdAt` and PLACED.`placedAt` (non-key)              |
-| Source tables          | Same dataset as the graph, prefix `e2e_*`. Never RFC `my-project.raw`                     |
-| GQL labels             | Semantic (`:Customer`, `:PLACED`, `:OrderItem`, `:OF`), never `_ontobq_*`                 |
+| Item                   | Freeze                                                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------------------------------- |
+| Domain `metadata.name` | `commerce_e2e_<run_id>` → views `_ontobq_commerce_e2e_<run_id>_n_*` / `_e_*`                            |
+| Graph object           | `${ONTOBQ_E2E_GRAPH}` default `commerce_e2e_graph`, then `_<run_id>` (must not collide with view names) |
+| Composite key          | OrderItem `[orderId, sku]`; `CONTAINS` and `OF` endpoints use the full tuple                            |
+| Expression             | `TIMESTAMP(created_at)` on Order.`createdAt` and PLACED.`placedAt` (non-key)                            |
+| Source tables          | Same dataset as the graph, prefix `e2e_*`. Never RFC `my-project.raw`                                   |
+| GQL labels             | Semantic (`:Customer`, `:PLACED`, `:OrderItem`, `:OF`), never `_ontobq_*`                               |
+
+`<run_id>` (see `gates.new_run_id`, `templates.RUN_ID_TOKEN`) is a fresh hex suffix generated once per test session and applied to the domain name, graph, every seed/negative table, and every generated view — so two sessions sharing one allowlisted project/dataset (e.g. concurrent CI runs) never overwrite or drop each other's objects. Teardown only ever targets **this session's** `<run_id>`-suffixed objects.
 
 ---
 
@@ -50,7 +52,7 @@ Refuse to run unless **all** of these are set. Unset or mismatch ⇒ skip or fai
 
 **Allowlist rules** (implement in `conftest.py`):
 
-1. Split `ONTOBQ_E2E_ALLOWED_PROJECTS` on commas, trim, require `ONTOBQ_E2E_PROJECT` to be an **exact** member.
+1. Split `ONTOBQ_E2E_ALLOWED_PROJECTS` on commas, trim, require `ONTOBQ_E2E_PROJECT` to be an **exact** member. No wildcard/prefix matching: tokens such as `*` or `prod*` are rejected, never authorizing a whole project family.
 2. Documented dataset prefix (recommended extra, not a substitute for the project allowlist): dataset id starts with `ontobq_e2e`.
 3. Unset allowlist → `pytest.skip` (or fail-fast) with **no** inspector/mutator construction.
 4. Project not in allowlist → refuse, **no DDL**.
@@ -84,18 +86,23 @@ No production credentials or production data in fixtures. Default PR `test.yml` 
 
 YAML and SQL under `fixtures/` are **templates**. Tokens:
 
-`${ONTOBQ_E2E_PROJECT}` `${ONTOBQ_E2E_DATASET}` `${ONTOBQ_E2E_GRAPH}`
+`${ONTOBQ_E2E_PROJECT}` `${ONTOBQ_E2E_DATASET}` `${ONTOBQ_E2E_GRAPH}` `${ONTOBQ_E2E_RUN_ID}`
 
-They are illegal `BigQueryTableId` / Identifier values until replaced. `apply_plan` and the compilers do **not** interpolate. Substitute **before** `load_domain` / `ontobq validate|plan|apply`. Never apply RFC `my-project` to a live account.
+They are illegal `BigQueryTableId` / Identifier values until replaced. `apply_plan` and the compilers do **not** interpolate. Substitute **before** `load_domain` / `ontobq validate|plan|apply`. Never apply RFC `my-project` to a live account. `${ONTOBQ_E2E_RUN_ID}` is generated once per session (`gates.new_run_id`) and interpolated by `templates.materialize_text`/`materialize_file`, not by hand.
 
 ```python
+import secrets
 from string import Template
 
-def materialize(text: str, project: str, dataset: str, graph: str = "commerce_e2e_graph") -> str:
+
+def materialize(
+    text: str, project: str, dataset: str, graph: str = "commerce_e2e_graph", run_id: str = ""
+) -> str:
     return Template(text).substitute(
         ONTOBQ_E2E_PROJECT=project,
         ONTOBQ_E2E_DATASET=dataset,
         ONTOBQ_E2E_GRAPH=graph,
+        ONTOBQ_E2E_RUN_ID=run_id or secrets.token_hex(4),
     )
 ```
 
@@ -114,18 +121,18 @@ Against **one** allowlisted project/dataset:
 **Teardown order (required):**
 
 1. `DROP PROPERTY GRAPH IF EXISTS` this run’s graph
-2. `DROP VIEW IF EXISTS` this run’s `_ontobq_commerce_e2e_*` views
-3. `DROP TABLE IF EXISTS` this run’s `e2e_*` seed and dirty tables
+2. `DROP VIEW IF EXISTS` this run’s `_ontobq_commerce_e2e_<run_id>_*` views
+3. `DROP TABLE IF EXISTS` this run’s `e2e_*_<run_id>` seed and dirty tables
 
-**Never `DROP DATASET`.** Apply does not delete objects removed from config; isolation must not assume a dataset wipe.
+**Never `DROP DATASET`.** Apply does not delete objects removed from config; isolation must not assume a dataset wipe. Every object teardown drops is scoped to **this session's** `<run_id>`, so a second, concurrent session's objects are untouched.
 
-Apply-created objects (domain `commerce_e2e`, default graph `commerce_e2e_graph`):
+Apply-created objects (domain `commerce_e2e_<run_id>`, default graph `commerce_e2e_graph_<run_id>`):
 
-| Kind       | Name                                                                        |
-| ---------- | --------------------------------------------------------------------------- |
-| Graph      | `{project}.{dataset}.commerce_e2e_graph`                                    |
-| Node views | `_ontobq_commerce_e2e_n_customer`, `_n_order`, `_n_orderitem`, `_n_product` |
-| Edge views | `_ontobq_commerce_e2e_e_placed`, `_e_contains`, `_e_of`                     |
+| Kind       | Name                                                                                 |
+| ---------- | ------------------------------------------------------------------------------------ |
+| Graph      | `{project}.{dataset}.commerce_e2e_graph_<run_id>`                                    |
+| Node views | `_ontobq_commerce_e2e_<run_id>_n_customer`, `_n_order`, `_n_orderitem`, `_n_product` |
+| Edge views | `_ontobq_commerce_e2e_<run_id>_e_placed`, `_e_contains`, `_e_of`                     |
 
 ---
 

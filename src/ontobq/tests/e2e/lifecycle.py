@@ -22,6 +22,7 @@ from ontobq.tests.e2e.templates import TEARDOWN_SQL, materialize_text, sql_state
 
 if TYPE_CHECKING:
     from ontobq.bq.mutator import MutationExecutor, MutationReceipt
+    from ontobq.tests.e2e.templates import RunCoordinates
 
 
 def qualified(project: str, dataset: str, name: str) -> str:
@@ -52,8 +53,8 @@ def seed_statements(executor: MutationExecutor, statements: tuple[str, ...], lab
         run_ddl(executor, statement, target_name=f"{label}:{index}")
 
 
-def teardown_e2e(executor: MutationExecutor, project: str, dataset: str, graph: str) -> None:
-    """Run fixtures/teardown.sql. Never DROP DATASET."""
+def teardown_e2e(executor: MutationExecutor, coords: RunCoordinates) -> None:
+    """Run fixtures/teardown.sql for this run's ``coords.run_id`` only. Never DROP DATASET."""
 
-    script = materialize_text(TEARDOWN_SQL, project, dataset, graph)
+    script = materialize_text(TEARDOWN_SQL, coords)
     seed_statements(executor, sql_statements(script), label="teardown")

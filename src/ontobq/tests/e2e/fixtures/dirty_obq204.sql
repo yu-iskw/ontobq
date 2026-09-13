@@ -2,9 +2,9 @@
 -- Edge table: two rows with the same order_id (duplicate PLACED key).
 -- Node table: one row with that order_id so Order keys stay unique (no OBQ202).
 -- from.customer_id = cust_ada exists on happy-path e2e_customers (no OBQ205).
--- Do not INSERT into e2e_orders.
+-- Do not INSERT into e2e_orders. ${ONTOBQ_E2E_RUN_ID} suffix keeps these tables isolated.
 
-CREATE OR REPLACE TABLE `${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_orders_obq204` AS
+CREATE OR REPLACE TABLE `${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_orders_obq204_${ONTOBQ_E2E_RUN_ID}` AS
 SELECT * FROM UNNEST([
   STRUCT(
     'ord_dup' AS order_id,
@@ -20,7 +20,7 @@ SELECT * FROM UNNEST([
   )
 ]);
 
-CREATE OR REPLACE TABLE `${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_orders_obq204_nodes` AS
+CREATE OR REPLACE TABLE `${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_orders_obq204_nodes_${ONTOBQ_E2E_RUN_ID}` AS
 SELECT * FROM UNNEST([
   STRUCT(
     'ord_dup' AS order_id,

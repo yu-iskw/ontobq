@@ -3,9 +3,9 @@
 -- customer_id cust_ada exists on e2e_customers (no OBQ205).
 -- Unique edge key (no OBQ204).
 -- Split sources are required: commerce PLACED goldens join the same table to itself.
--- Do not INSERT into e2e_orders.
+-- Do not INSERT into e2e_orders. ${ONTOBQ_E2E_RUN_ID} suffix keeps this table isolated.
 
-CREATE OR REPLACE TABLE `${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_orders_edge_obq206` AS
+CREATE OR REPLACE TABLE `${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_orders_edge_obq206_${ONTOBQ_E2E_RUN_ID}` AS
 SELECT * FROM UNNEST([
   STRUCT(
     'ord_ghost' AS order_id,

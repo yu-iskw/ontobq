@@ -12,7 +12,7 @@ from ontobq.tests.e2e.gates import (
     decide_e2e,
     project_is_allowed,
 )
-from ontobq.tests.e2e.templates import substitute_tokens
+from ontobq.tests.e2e.templates import RunCoordinates, substitute_tokens
 
 
 def test_enable_flag_off_skips() -> None:
@@ -58,9 +58,17 @@ def test_rfc_fixture_project_refused_even_if_listed() -> None:
     assert "my-project" in decision.reason
 
 
-def test_exact_and_prefix_allowlist() -> None:
+def test_exact_allowlist_accepts_listed_projects() -> None:
     assert project_is_allowed("ontobq-e2e-ci", "ontobq-e2e-ci,other")
-    assert project_is_allowed("ontobq-e2e-ci", "ontobq-e2e-*")
+    assert not project_is_allowed("ontobq-e2e-ci-2", "ontobq-e2e-ci,other")
+
+
+def test_wildcard_and_prefix_tokens_are_rejected() -> None:
+    """No wildcard/prefix matching: ``*`` and ``prod*`` must not authorize a project family."""
+
+    assert not project_is_allowed("anything", "*")
+    assert not project_is_allowed("prod-123", "prod*")
+    assert not project_is_allowed("ontobq-e2e-ci", "ontobq-e2e-*")
     assert not project_is_allowed("prod", "ontobq-e2e-*")
 
 
@@ -70,7 +78,7 @@ def test_enabled_when_gates_pass() -> None:
             ENABLE_ENV: "1",
             PROJECT_ENV: "ontobq-e2e-ci",
             DATASET_ENV: "e2e_scratch",
-            ALLOWED_ENV: "ontobq-e2e-*",
+            ALLOWED_ENV: "ontobq-e2e-ci",
         }
     )
     assert decision.enabled
@@ -81,4 +89,4 @@ def test_enabled_when_gates_pass() -> None:
 
 def test_substitute_refuses_rfc_project() -> None:
     with pytest.raises(ValueError, match="my-project"):
-        substitute_tokens("project: my-project", "safe-proj", "ds")
+        substitute_tokens("project: my-project", RunCoordinates(project="safe-proj", dataset="ds"))

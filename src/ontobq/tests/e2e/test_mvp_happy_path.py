@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from typing import TYPE_CHECKING
@@ -16,7 +17,6 @@ from ontobq.orchestrate.validate import (
     LAYER_METADATA,
     LAYER_SEMANTICS,
 )
-from ontobq.tests.e2e.gates import DOMAIN_NAME
 from ontobq.tests.e2e.gql import (
     COMPOSITE_ROWS,
     MULTI_HOP_ROWS,
@@ -52,7 +52,7 @@ def _row_values(row: object) -> dict[str, str]:
 
 def test_domain_loads_structurally(e2e_live: LiveE2E) -> None:
     domain = load_domain(e2e_live.domain_path)
-    assert domain.metadata.name == DOMAIN_NAME
+    assert domain.metadata.name == e2e_live.domain_name
     assert domain.bigquery.project == e2e_live.project
     assert domain.bigquery.dataset == e2e_live.dataset
     assert tuple(domain.entities) == ("Customer", "Order", "OrderItem", "Product")
@@ -71,6 +71,10 @@ def test_four_validation_layers_pass(e2e_live: LiveE2E) -> None:
 
 
 def test_cli_validate_json_subprocess_is_ok(e2e_live: LiveE2E) -> None:
+    # The CLI's default inspector/read-executor construct google.cloud.bigquery.Client()
+    # with no project override, so they fall back to ADC's default project unless
+    # GOOGLE_CLOUD_PROJECT names the gated project explicitly.
+    env = {**os.environ, "GOOGLE_CLOUD_PROJECT": e2e_live.project}
     result = subprocess.run(  # noqa: S603
         [
             sys.executable,
@@ -84,6 +88,7 @@ def test_cli_validate_json_subprocess_is_ok(e2e_live: LiveE2E) -> None:
         check=False,
         capture_output=True,
         text=True,
+        env=env,
     )
     payload = json.loads(result.stdout)
     assert result.returncode == 0
@@ -97,8 +102,8 @@ def test_plan_orders_views_then_graph(e2e_live: LiveE2E) -> None:
     kinds = tuple(item.kind for item in plan.artifacts)
     assert kinds[-1] == "property_graph"
     assert set(kinds[:-1]) == {"mapping_view"}
-    customer = node_view_name(DOMAIN_NAME, "Customer")
-    placed = edge_view_name(DOMAIN_NAME, "PLACED")
+    customer = node_view_name(e2e_live.domain_name, "Customer")
+    placed = edge_view_name(e2e_live.domain_name, "PLACED")
     targets = tuple(item.target_name for item in plan.artifacts)
     assert any(target.endswith(customer) for target in targets)
     assert any(target.endswith(placed) for target in targets)

@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 
 from ontobq.tests.e2e.gates import GRAPH_NAME, RFC_FIXTURE_PROJECT
@@ -24,6 +25,7 @@ FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 PROJECT_TOKEN = "${ONTOBQ_E2E_PROJECT}"  # noqa: S105 -- interpolation placeholder, not a secret
 DATASET_TOKEN = "${ONTOBQ_E2E_DATASET}"  # noqa: S105 -- interpolation placeholder, not a secret
 GRAPH_TOKEN = "${ONTOBQ_E2E_GRAPH}"  # noqa: S105 -- interpolation placeholder, not a secret
+RUN_ID_TOKEN = "${ONTOBQ_E2E_RUN_ID}"  # noqa: S105 -- interpolation placeholder, not a secret
 HAPPY_YAML = "commerce_e2e.yaml"
 SEED_SQL = "seed.sql"
 TEARDOWN_SQL = "teardown.sql"
@@ -45,38 +47,55 @@ NEGATIVE_FILES = (
 )
 
 
+@dataclass(frozen=True)
+class RunCoordinates:
+    """Project/dataset/graph/run-id bundle threaded through template interpolation.
+
+    ``run_id`` (see ``gates.new_run_id``) is appended to every generated
+    domain, graph, view, and table name so parallel sessions sharing one
+    allowlisted project/dataset never collide.
+    """
+
+    project: str
+    dataset: str
+    graph: str = GRAPH_NAME
+    run_id: str = ""
+
+
 def fixture_path(name: str) -> Path:
     """Return a path under ``tests/e2e/fixtures``."""
 
     return FIXTURES_DIR / name
 
 
-def substitute_tokens(text: str, project: str, dataset: str, graph: str = GRAPH_NAME) -> str:
-    """Replace project/dataset/graph tokens. Refuse leftover RFC or unresolved tokens."""
+def substitute_tokens(text: str, coords: RunCoordinates) -> str:
+    """Replace project/dataset/graph/run-id tokens. Refuse leftover RFC or unresolved tokens."""
 
     rendered = (
-        text.replace(PROJECT_TOKEN, project)
-        .replace(DATASET_TOKEN, dataset)
-        .replace(GRAPH_TOKEN, graph)
+        text.replace(PROJECT_TOKEN, coords.project)
+        .replace(DATASET_TOKEN, coords.dataset)
+        .replace(GRAPH_TOKEN, coords.graph)
+        .replace(RUN_ID_TOKEN, coords.run_id)
     )
     if RFC_FIXTURE_PROJECT in rendered:
         raise ValueError("refusing to materialize RFC fixture project my-project")
-    if PROJECT_TOKEN in rendered or DATASET_TOKEN in rendered or GRAPH_TOKEN in rendered:
+    remaining = (PROJECT_TOKEN, DATASET_TOKEN, GRAPH_TOKEN, RUN_ID_TOKEN)
+    if any(token in rendered for token in remaining):
         raise ValueError("unresolved E2E interpolation tokens remain")
     return rendered
 
 
-def materialize_text(name: str, project: str, dataset: str, graph: str) -> str:
+def materialize_text(name: str, coords: RunCoordinates) -> str:
     """Read a fixture file and interpolate live coordinates."""
 
     original = fixture_path(name).read_text(encoding="utf-8")
-    return substitute_tokens(original, project, dataset, graph)
+    return substitute_tokens(original, coords)
 
 
-def materialize_file(name: str, destination: Path, project: str, dataset: str, graph: str) -> Path:
+def materialize_file(name: str, destination: Path, coords: RunCoordinates) -> Path:
     """Write an interpolated fixture copy and return the destination path."""
 
-    destination.write_text(materialize_text(name, project, dataset, graph), encoding="utf-8")
+    destination.write_text(materialize_text(name, coords), encoding="utf-8")
     return destination
 
 

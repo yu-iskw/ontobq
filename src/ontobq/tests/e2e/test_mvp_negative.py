@@ -19,13 +19,7 @@ if TYPE_CHECKING:
 
 
 def _variant_path(live: LiveE2E, filename: str) -> Path:
-    return materialize_file(
-        filename,
-        live.workdir / filename,
-        live.project,
-        live.dataset,
-        live.graph,
-    )
+    return materialize_file(filename, live.workdir / filename, live.coords)
 
 
 def _validate_codes(

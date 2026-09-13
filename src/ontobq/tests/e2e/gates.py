@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import re
+import secrets
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -51,18 +52,27 @@ def allowed_tokens(spec: str) -> tuple[str, ...]:
     return tuple(part.strip() for part in spec.split(",") if part.strip())
 
 
-def token_matches(project: str, token: str) -> bool:
-    """Exact project id, or prefix when the token ends with ``*``."""
-
-    if token.endswith("*"):
-        return project.startswith(token[:-1])
-    return project == token
-
-
 def project_is_allowed(project: str, spec: str) -> bool:
-    """True when ``project`` matches an allowlist token."""
+    """True when ``project`` is an *exact*, trimmed member of the allowlist.
 
-    return any(token_matches(project, token) for token in allowed_tokens(spec))
+    No wildcard/prefix matching: a token such as ``*`` or ``prod*`` must never
+    authorize an entire project family. Every allowlist entry must name a
+    concrete project id.
+    """
+
+    return project in allowed_tokens(spec)
+
+
+def new_run_id() -> str:
+    """Identifier-safe, low-collision suffix so parallel E2E sessions never collide.
+
+    Applied to the materialized domain name, graph, seed tables, generated
+    views, and isolated negative-case tables (see ``templates.RUN_ID_TOKEN``)
+    so two sessions sharing one allowlisted project/dataset create and tear
+    down disjoint objects instead of overwriting or dropping each other's.
+    """
+
+    return secrets.token_hex(4)
 
 
 def decide_e2e(environ: Mapping[str, str]) -> E2EDecision:

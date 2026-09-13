@@ -1,4 +1,4 @@
-# TEMPLATE — substitute ${ONTOBQ_E2E_PROJECT} ${ONTOBQ_E2E_DATASET} ${ONTOBQ_E2E_GRAPH}
+# TEMPLATE — substitute ${ONTOBQ_E2E_PROJECT} ${ONTOBQ_E2E_DATASET} ${ONTOBQ_E2E_GRAPH} ${ONTOBQ_E2E_RUN_ID}
 # OBQ206: PLACED to-endpoint order_id does not exist on Order's source.
 # MUST split tables: Order stays on happy-path e2e_orders; edge uses e2e_orders_edge_obq206.
 # Same-table PLACED/Order goldens cannot produce a non-NULL destination orphan.
@@ -10,7 +10,7 @@ apiVersion: ontobq.dev/v1alpha1
 kind: Domain
 
 metadata:
-  name: commerce_e2e
+  name: commerce_e2e_obq206_${ONTOBQ_E2E_RUN_ID}
   displayName: Commerce E2E OBQ206
   description: Negative — orphan relationship destination endpoint.
 
@@ -33,7 +33,7 @@ spec:
           type: string
       mapping:
         bigquery:
-          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_customers
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_customers_${ONTOBQ_E2E_RUN_ID}
           properties:
             id:
               column: customer_id
@@ -54,7 +54,7 @@ spec:
           type: string
       mapping:
         bigquery:
-          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_orders
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_orders_${ONTOBQ_E2E_RUN_ID}
           properties:
             id:
               column: order_id
@@ -72,7 +72,7 @@ spec:
           type: timestamp
       mapping:
         bigquery:
-          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_orders_edge_obq206
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_orders_edge_obq206_${ONTOBQ_E2E_RUN_ID}
           key:
             - column: order_id
           from:

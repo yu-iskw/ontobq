@@ -1,4 +1,4 @@
-# TEMPLATE — substitute ${ONTOBQ_E2E_PROJECT} ${ONTOBQ_E2E_DATASET} ${ONTOBQ_E2E_GRAPH}
+# TEMPLATE — substitute ${ONTOBQ_E2E_PROJECT} ${ONTOBQ_E2E_DATASET} ${ONTOBQ_E2E_GRAPH} ${ONTOBQ_E2E_RUN_ID}
 # OBQ202: duplicate entity key on isolated e2e_customers_obq202 (dirty_obq202.sql).
 # Customer-only Domain so PLACED cannot also fire OBQ205.
 # Do not apply this variant.
@@ -8,7 +8,7 @@ apiVersion: ontobq.dev/v1alpha1
 kind: Domain
 
 metadata:
-  name: commerce_e2e
+  name: commerce_e2e_obq202_${ONTOBQ_E2E_RUN_ID}
   displayName: Commerce E2E OBQ202
   description: Negative — duplicate entity key.
 
@@ -31,7 +31,7 @@ spec:
           type: string
       mapping:
         bigquery:
-          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_customers_obq202
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_customers_obq202_${ONTOBQ_E2E_RUN_ID}
           properties:
             id:
               column: customer_id

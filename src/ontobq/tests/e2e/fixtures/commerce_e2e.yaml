@@ -1,7 +1,9 @@
 # TEMPLATE — substitute before load_domain / ontobq validate|plan|apply.
-# Tokens: ${ONTOBQ_E2E_PROJECT} ${ONTOBQ_E2E_DATASET} ${ONTOBQ_E2E_GRAPH}
+# Tokens: ${ONTOBQ_E2E_PROJECT} ${ONTOBQ_E2E_DATASET} ${ONTOBQ_E2E_GRAPH} ${ONTOBQ_E2E_RUN_ID}
 # Unsubstituted tokens fail JSON Schema (table id / graph Identifier).
 # Never apply RFC my-project to a live account.
+# ${ONTOBQ_E2E_RUN_ID} suffix on the domain name and every source table keeps
+# parallel sessions from colliding on one allowlisted project/dataset.
 #
 # Graph: Customer -PLACED-> Order -CONTAINS-> OrderItem -OF-> Product
 # OrderItem composite key [orderId, sku]. Expression: TIMESTAMP(created_at).
@@ -9,7 +11,7 @@ apiVersion: ontobq.dev/v1alpha1
 kind: Domain
 
 metadata:
-  name: commerce_e2e
+  name: commerce_e2e_${ONTOBQ_E2E_RUN_ID}
   displayName: Commerce E2E
   description: Live BigQuery MVP acceptance domain (issue 17). RFC #8 stays OPEN.
 
@@ -33,7 +35,7 @@ spec:
           type: string
       mapping:
         bigquery:
-          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_customers
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_customers_${ONTOBQ_E2E_RUN_ID}
           properties:
             id:
               column: customer_id
@@ -55,7 +57,7 @@ spec:
           type: string
       mapping:
         bigquery:
-          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_orders
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_orders_${ONTOBQ_E2E_RUN_ID}
           properties:
             id:
               column: order_id
@@ -81,7 +83,7 @@ spec:
           type: integer
       mapping:
         bigquery:
-          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_order_items
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_order_items_${ONTOBQ_E2E_RUN_ID}
           properties:
             orderId:
               column: order_id
@@ -103,7 +105,7 @@ spec:
           type: string
       mapping:
         bigquery:
-          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_products
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_products_${ONTOBQ_E2E_RUN_ID}
           properties:
             id:
               column: product_id
@@ -120,7 +122,7 @@ spec:
           type: timestamp
       mapping:
         bigquery:
-          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_orders
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_orders_${ONTOBQ_E2E_RUN_ID}
           key:
             - column: order_id
           from:
@@ -139,7 +141,7 @@ spec:
       to: OrderItem
       mapping:
         bigquery:
-          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_order_items
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_order_items_${ONTOBQ_E2E_RUN_ID}
           key:
             - column: order_id
             - column: sku
@@ -158,7 +160,7 @@ spec:
       to: Product
       mapping:
         bigquery:
-          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_order_items
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_order_items_${ONTOBQ_E2E_RUN_ID}
           key:
             - column: order_id
             - column: sku
