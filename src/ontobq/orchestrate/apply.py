@@ -112,9 +112,7 @@ def _identity_reasons(plan: DeploymentPlan, executor: MutationExecutor) -> tuple
 def _target_reasons(plan: DeploymentPlan) -> tuple[str, ...]:
     prefix = f"{plan.domain_identity.project}.{plan.domain_identity.dataset}."
     return tuple(
-        reason
-        for artifact in plan.artifacts
-        for reason in _one_target_reason(artifact, prefix)
+        reason for artifact in plan.artifacts for reason in _one_target_reason(artifact, prefix)
     )
 
 

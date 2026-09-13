@@ -136,8 +136,9 @@ class _ProjectRecordingSdk:
 
     def __init__(self) -> None:
         self.project: str | None = None
+        self.Client = self._client
 
-    def Client(self, project: str | None = None) -> object:  # noqa: N802 - SDK surface
+    def _client(self, project: str | None = None) -> object:
         self.project = project
         return object()
 
