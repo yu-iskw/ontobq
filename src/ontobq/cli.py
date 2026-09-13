@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Thin ``ontobq`` CLI: formatter and exit-code adapter over validate/plan APIs."""
+"""Thin ``ontobq`` CLI: formatter and exit-code adapter over validate/plan/apply APIs."""
 
 from __future__ import annotations
 
@@ -21,11 +21,18 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from ontobq.bigquery.google import GoogleBigQueryInspector, GoogleBigQueryReadExecutor
+from ontobq.bigquery.google import (
+    GoogleBigQueryInspector,
+    GoogleBigQueryReadExecutor,
+    GoogleMutationExecutor,
+)
+from ontobq.orchestrate.apply import apply_plan
 from ontobq.orchestrate.plan import PlanBlockedError, build_plan
 from ontobq.orchestrate.render import (
+    apply_payload,
     concatenated_sql,
     dumps_json,
+    format_apply_human,
     format_plan_human,
     format_validation_human,
     plan_payload,
@@ -39,6 +46,8 @@ if TYPE_CHECKING:
 
     from ontobq.bigquery.inspector import BigQueryInspector
     from ontobq.bq.executor import BigQueryReadExecutor
+    from ontobq.bq.mutator import MutationExecutor
+    from ontobq.orchestrate.apply import ApplyResult
     from ontobq.orchestrate.plan import DeploymentPlan
 
 _POLICY_HELP = """\
@@ -47,6 +56,7 @@ requires a BigQuery inspector and query executor. --offline runs load and
 semantics only and does not construct BigQuery clients. --skip-integrity runs
 layers 1-3 (inspector required; no data scans). --offline implies integrity off.
 Plans produced offline or without integrity are not apply-safe.
+apply always runs layers 1-4 then mutates; it does not accept --offline.
 """
 
 
@@ -55,26 +65,30 @@ def main(
     *,
     inspector: BigQueryInspector | None = None,
     query_executor: BigQueryReadExecutor | None = None,
+    mutator: MutationExecutor | None = None,
 ) -> int:
-    """CLI entry. Returns 0 iff there are no error-level diagnostics and plan succeeded."""
+    """CLI entry. Returns 0 iff validation/plan/apply succeeded with no errors."""
 
     args = _parse_args(argv)
     clients = _resolve_clients(args, inspector, query_executor)
     if args.command == "validate":
         return _run_validate(args, clients[0], clients[1])
+    if args.command == "apply":
+        return _run_apply(args, clients[0], clients[1], mutator)
     return _run_plan(args, clients[0], clients[1])
 
 
 def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="ontobq",
-        description="Read-only Domain validation and deployment planning.",
+        description="Domain validation, deployment planning, and BigQuery apply.",
         epilog=_POLICY_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
     _add_validate_parser(subparsers)
     _add_plan_parser(subparsers)
+    _add_apply_parser(subparsers)
     parsed = list(argv) if argv is not None else None
     return parser.parse_args(parsed)
 
@@ -125,6 +139,24 @@ def _add_plan_parser(subparsers: Any) -> None:
         default=None,
         help="Write SQL: '-' concatenates to stdout; DIR writes one file per artifact.",
     )
+
+
+def _add_apply_parser(subparsers: Any) -> None:
+    parser = subparsers.add_parser(
+        "apply",
+        help="Apply a validated deployment plan to BigQuery.",
+        description="Validate, build a plan, then mutate BigQuery in dependency order.",
+        epilog=_POLICY_HELP,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--format",
+        choices=("human", "json"),
+        default="human",
+        help="Apply result presentation.",
+    )
+    parser.add_argument("domain", type=Path, help="Path to a Domain YAML or JSON document.")
+    parser.set_defaults(offline=False, skip_integrity=False)
 
 
 def _offline_only(args: argparse.Namespace) -> bool:
@@ -228,6 +260,42 @@ def _human_plan_output(plan: DeploymentPlan, emit_sql: str | None) -> str:
     if emit_sql != "-":
         return summary + "\n"
     return f"{summary}\n\n{concatenated_sql(plan)}"
+
+
+def _run_apply(
+    args: argparse.Namespace,
+    inspector: BigQueryInspector | None,
+    query_executor: BigQueryReadExecutor | None,
+    mutator: MutationExecutor | None,
+) -> int:
+    try:
+        plan = build_plan(
+            args.domain,
+            inspector=inspector,
+            query_executor=query_executor,
+            offline_only=False,
+            include_integrity=True,
+        )
+    except PlanBlockedError as error:
+        _print(_render_validation(error.validation, args.format))
+        return 1
+    executor = mutator if mutator is not None else _live_mutator(plan)
+    result = apply_plan(plan, executor)
+    _print(_render_apply(result, args.format))
+    if result.ok:
+        return 0
+    return 1
+
+
+def _live_mutator(plan: DeploymentPlan) -> MutationExecutor:
+    identity = plan.domain_identity
+    return GoogleMutationExecutor(project=identity.project, dataset=identity.dataset)
+
+
+def _render_apply(result: ApplyResult, fmt: str) -> str:
+    if fmt == "json":
+        return dumps_json(apply_payload(result))
+    return format_apply_human(result)
 
 
 if __name__ == "__main__":

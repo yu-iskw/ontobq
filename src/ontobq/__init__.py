@@ -24,6 +24,9 @@ from ontobq.bigquery import (
 from ontobq.bq import (
     BigQueryReadExecutor,
     FakeBigQueryReadExecutor,
+    MutationExecutor,
+    MutationIdentity,
+    MutationReceipt,
     QueryEstimate,
 )
 from ontobq.compile import (
@@ -56,12 +59,15 @@ from ontobq.naming import (
     to_key_column,
 )
 from ontobq.orchestrate import (
+    ApplyResult,
+    ArtifactApplyStatus,
     DeploymentPlan,
     DomainIdentity,
     PlanArtifact,
     PlanBlockedError,
     ValidationResult,
     ValidationSummary,
+    apply_plan,
     build_plan,
     validate_domain,
 )
@@ -80,6 +86,8 @@ __all__ = [
     "API_VERSION",
     "KIND",
     "SCHEMA_ID",
+    "ApplyResult",
+    "ArtifactApplyStatus",
     "BigQueryEntityMapping",
     "BigQueryInspector",
     "BigQueryReadExecutor",
@@ -101,6 +109,9 @@ __all__ = [
     "IntegrityReport",
     "MappingViewArtifact",
     "Metadata",
+    "MutationExecutor",
+    "MutationIdentity",
+    "MutationReceipt",
     "PlanArtifact",
     "PlanBlockedError",
     "PropertyDefinition",
@@ -113,6 +124,7 @@ __all__ = [
     "SourceSnapshot",
     "ValidationResult",
     "ValidationSummary",
+    "apply_plan",
     "build_plan",
     "compile_integrity_queries",
     "compile_mapping_views",

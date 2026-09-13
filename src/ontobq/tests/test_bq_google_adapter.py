@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import ontobq
-from ontobq.bigquery.google import GoogleBigQueryReadExecutor
+from ontobq.bigquery.google import GoogleBigQueryReadExecutor, GoogleMutationExecutor
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -46,6 +46,7 @@ def test_google_adapter_contains_dry_run_config() -> None:
     assert "QueryJobConfig" in text
     assert "GoogleBigQueryInspector" in text
     assert "GoogleBigQueryReadExecutor" in text
+    assert "GoogleMutationExecutor" in text
     assert "job.result()" in text
     assert "CREATE OR REPLACE VIEW" not in text
     assert "PROPERTY GRAPH" not in text
@@ -71,3 +72,56 @@ def test_read_executor_query_uses_job_result_and_max_rows() -> None:
     got = executor.query("SELECT id FROM t", max_rows=2)
     assert client.sql == "SELECT id FROM t"
     assert got == ({"id": "a"}, {"id": "b"})
+
+
+class _DdlJob:
+    """SDK-shaped job that yields a job id after result()."""
+
+    def __init__(self, job_id: str) -> None:
+        self.job_id = job_id
+        self.finished = False
+
+    def result(self) -> None:
+        self.finished = True
+
+
+class _DdlClient:
+    """Duck-typed BigQuery client for mutation tests."""
+
+    def __init__(self, job: _DdlJob) -> None:
+        self._job = job
+        self.sql: str | None = None
+
+    def query(self, sql: str, job_config: object | None = None) -> _DdlJob:
+        del job_config
+        self.sql = sql
+        return self._job
+
+
+class _FailingDdlClient:
+    def query(self, sql: str, job_config: object | None = None) -> object:
+        del sql, job_config
+        raise RuntimeError("ddl failed")
+
+
+def test_mutation_executor_success_is_applied_with_job_id() -> None:
+    job = _DdlJob("job-123")
+    client = _DdlClient(job)
+    executor = GoogleMutationExecutor(project="my-project", dataset="semantic", client=client)
+    receipt = executor.execute_ddl("SELECT 1", target_name="my-project.semantic.view")
+    assert client.sql == "SELECT 1"
+    assert job.finished is True
+    assert receipt.ok
+    assert receipt.unchanged is False
+    assert receipt.job_id == "job-123"
+
+
+def test_mutation_executor_sdk_error_returns_receipt() -> None:
+    executor = GoogleMutationExecutor(
+        project="my-project",
+        dataset="semantic",
+        client=_FailingDdlClient(),
+    )
+    receipt = executor.execute_ddl("SELECT 1", target_name="t")
+    assert not receipt.ok
+    assert receipt.error == "ddl failed"

@@ -8,12 +8,12 @@ representation after JSON Schema validation. Mapping-view compilation,
 read-only BigQuery metadata validation (`validate_bigquery_metadata`,
 `OBQ101`–`OBQ105`), and data-integrity checks (`OBQ201`–`OBQ206`) are
 library APIs. `validate_domain` and `build_plan` orchestrate those layers;
-the `ontobq` console script exposes read-only `validate` and `plan`.
+the `ontobq` console script exposes `validate`, `plan`, and `apply`.
 The Google Cloud adapter lives in `ontobq.bigquery.google` and is an
 optional extra (`pip install ontobq[bigquery]`). Default tests use
-`FakeBigQueryInspector` / `FakeBigQueryReadExecutor` and do not need a
-GCP project. `apply` lands in a later issue.
-Keep [RFC 8](https://github.com/yu-iskw/ontobq/issues/8) open until issue 17.
+`FakeBigQueryInspector` / `FakeBigQueryReadExecutor` /
+`FakeMutationExecutor` and do not need a GCP project.
+Keep RFC #8 open until issue 17.
 
 ## Features
 
@@ -27,9 +27,11 @@ Keep [RFC 8](https://github.com/yu-iskw/ontobq/issues/8) open until issue 17.
   endpoints (`OBQ201`–`OBQ206`). They do not query mapping views or the
   property graph. Execution goes through `BigQueryReadExecutor` (tests use
   `FakeBigQueryReadExecutor`).
-- **CLI**: `ontobq validate` and `ontobq plan` are read-only. Default runs
-  layers 1–4 and needs BigQuery clients; `--offline` runs load + semantics
-  only and does not construct clients; `--skip-integrity` skips data scans.
+- **CLI**: `ontobq validate` and `ontobq plan` are read-only. `ontobq apply`
+  builds a #15 plan then mutates through `MutationExecutor`. Default
+  validate/plan runs layers 1–4 and needs BigQuery clients; `--offline` runs
+  load + semantics only and does not construct clients; `--skip-integrity`
+  skips data scans. `apply` always uses layers 1–4.
 
 ## Security & Quality
 
