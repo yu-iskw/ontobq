@@ -36,7 +36,7 @@ from ontobq.tests.orchestrate_support import (
 from ontobq.tests.paths import FIXTURES_DIR
 
 if TYPE_CHECKING:
-    import pytest
+    import pytest  # pyright: ignore[reportMissingImports]
 
 _COMMERCE = FIXTURES_DIR / "commerce.yaml"
 _SEMANTICS = FIXTURES_DIR / "semantics"
@@ -59,7 +59,7 @@ def test_commerce_happy_path_runs_layers_1_to_4() -> None:
     assert not result.has_errors
     assert result.offline_only is False
     assert result.include_integrity is True
-    assert result.diagnostics == ()
+    assert not result.diagnostics
 
 
 def test_offline_runs_load_and_semantics_only() -> None:

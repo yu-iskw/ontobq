@@ -162,9 +162,7 @@ def test_reuse_rejected_when_identity_matches_but_contents_differ() -> None:
 def test_stale_validation_not_reused_after_source_file_change(tmp_path: Path) -> None:
     path = tmp_path / "domain.yaml"
     path.write_text(_COMMERCE.read_text(encoding="utf-8"), encoding="utf-8")
-    result = validate_domain(
-        path, inspector=commerce_inspector(), query_executor=clean_executor()
-    )
+    result = validate_domain(path, inspector=commerce_inspector(), query_executor=clean_executor())
     expression = FIXTURES_DIR / "expression-mapping.yaml"
     path.write_text(expression.read_text(encoding="utf-8"), encoding="utf-8")
     plan = build_plan(

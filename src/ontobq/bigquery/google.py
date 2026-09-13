@@ -92,9 +92,7 @@ class GoogleBigQueryReadExecutor:
         if config_cls is None:
             config_cls = _load_bigquery().QueryJobConfig
             self._job_config_cls = config_cls
-        job = self._client.query(
-            sql, job_config=config_cls(dry_run=True, use_query_cache=False)
-        )
+        job = self._client.query(sql, job_config=config_cls(dry_run=True, use_query_cache=False))
         return QueryEstimate(bytes_processed=_bytes_processed(job))
 
     def query(self, sql: str, *, max_rows: int) -> tuple[Mapping[str, object], ...]:
