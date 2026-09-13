@@ -59,6 +59,20 @@ def test_domain_loads_structurally(e2e_live: LiveE2E) -> None:
     assert tuple(domain.relationships) == ("PLACED", "CONTAINS", "OF")
 
 
+def _bound_client_project(adapter: object) -> str:
+    """Return the live BigQuery project's id on ``adapter``'s SDK client.
+
+    ``SdkShapedClient`` only names the methods inspectors/executors call, so
+    ``.project`` is not on the protocol. ``getattr`` keeps this assertion on
+    the real ``google.cloud.bigquery.Client`` without protected-member lint.
+    """
+
+    project = getattr(getattr(adapter, "_client", None), "project", None)
+    if not isinstance(project, str) or not project:
+        raise AssertionError(f"{type(adapter).__name__} is not bound to a project")
+    return project
+
+
 def test_read_clients_resolve_to_the_gated_project(e2e_live: LiveE2E) -> None:
     """Inspector and read-executor must never fall back to ADC's default project.
 
@@ -69,11 +83,8 @@ def test_read_clients_resolve_to_the_gated_project(e2e_live: LiveE2E) -> None:
     cannot silently run against (and bill) a different project.
     """
 
-    # pylint: disable=protected-access
-    inspector_client = e2e_live.inspector._client
-    executor_client = e2e_live.query_executor._client
-    assert inspector_client.project == e2e_live.project  # pyright: ignore[reportAttributeAccessIssue]
-    assert executor_client.project == e2e_live.project  # pyright: ignore[reportAttributeAccessIssue]
+    assert _bound_client_project(e2e_live.inspector) == e2e_live.project
+    assert _bound_client_project(e2e_live.query_executor) == e2e_live.project
     assert e2e_live.mutator.identity.project == e2e_live.project
 
 
