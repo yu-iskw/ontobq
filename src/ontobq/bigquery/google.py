@@ -116,6 +116,10 @@ def _wait_for_job(job: object) -> None:
         result_fn()
 
 
+def _client_for_project(sdk: Any, project: str) -> Any:
+    return sdk.Client(project=project)
+
+
 class GoogleMutationExecutor:
     """DDL executor backed by ``google.cloud.bigquery.Client``. Success is always applied."""
 
@@ -131,7 +135,7 @@ class GoogleMutationExecutor:
             self._client: Any = client
             return
         sdk = _load_bigquery()
-        self._client = _sdk_client(None, sdk)
+        self._client = _client_for_project(sdk, project)
 
     @property
     def identity(self) -> MutationIdentity:

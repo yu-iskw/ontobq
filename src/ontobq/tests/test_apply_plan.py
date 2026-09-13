@@ -114,6 +114,28 @@ def test_executor_identity_mismatch_refuses() -> None:
     assert not fake.submitted
 
 
+def test_replaced_identity_without_sql_change_refuses() -> None:
+    plan = _plan_commerce()
+    identity = replace(plan.domain_identity, project="other-project")
+    blocked = replace(plan, domain_identity=identity)
+    fake = FakeMutationExecutor(project="other-project")
+    result = apply_plan(blocked, fake)
+    assert result.refused
+    assert any("target_name not in plan dataset" in reason for reason in result.refusal_reasons)
+    assert not fake.submitted
+
+
+def test_target_name_missing_from_sql_refuses() -> None:
+    plan = _plan_commerce()
+    graph = replace(plan.artifacts[-1], target_name="my-project.semantic.other_graph")
+    blocked = replace(plan, artifacts=(*plan.artifacts[:-1], graph))
+    fake = FakeMutationExecutor()
+    result = apply_plan(blocked, fake)
+    assert result.refused
+    assert any("sql does not name target" in reason for reason in result.refusal_reasons)
+    assert not fake.submitted
+
+
 def test_unresolved_dependency_refuses() -> None:
     plan = _plan_commerce()
     graph = replace(plan.artifacts[-1], dependencies=("missing.view",))
@@ -122,6 +144,17 @@ def test_unresolved_dependency_refuses() -> None:
     result = apply_plan(blocked, fake)
     assert result.refused
     assert any("unresolved dependency" in reason for reason in result.refusal_reasons)
+    assert not fake.submitted
+
+
+def test_forward_dependency_refuses() -> None:
+    plan = _plan_commerce()
+    first = replace(plan.artifacts[0], dependencies=(plan.artifacts[1].target_name,))
+    blocked = replace(plan, artifacts=(first, *plan.artifacts[1:]))
+    fake = FakeMutationExecutor()
+    result = apply_plan(blocked, fake)
+    assert result.refused
+    assert any("is not before" in reason for reason in result.refusal_reasons)
     assert not fake.submitted
 
 

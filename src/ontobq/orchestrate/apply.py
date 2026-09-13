@@ -84,6 +84,7 @@ def _refusal_reasons(
         *_integrity_reasons(plan, require_integrity),
         *_structure_reasons(plan),
         *_identity_reasons(plan, executor),
+        *_target_reasons(plan),
         *_hash_reasons(plan),
     )
 
@@ -106,6 +107,25 @@ def _identity_reasons(plan: DeploymentPlan, executor: MutationExecutor) -> tuple
     if got.project != expected.project or got.dataset != expected.dataset:
         return ("executor identity does not match plan domain",)
     return ()
+
+
+def _target_reasons(plan: DeploymentPlan) -> tuple[str, ...]:
+    prefix = f"{plan.domain_identity.project}.{plan.domain_identity.dataset}."
+    return tuple(
+        reason
+        for artifact in plan.artifacts
+        for reason in _one_target_reason(artifact, prefix)
+    )
+
+
+def _one_target_reason(artifact: PlanArtifact, prefix: str) -> tuple[str, ...]:
+    dataset_reason = ()
+    if not artifact.target_name.startswith(prefix):
+        dataset_reason = (f"target_name not in plan dataset: {artifact.target_name}",)
+    sql_reason = ()
+    if artifact.target_name not in artifact.sql:
+        sql_reason = (f"sql does not name target: {artifact.target_name}",)
+    return (*dataset_reason, *sql_reason)
 
 
 def _hash_reasons(plan: DeploymentPlan) -> tuple[str, ...]:
@@ -166,13 +186,27 @@ def _graph_order_reason(kinds: tuple[str, ...]) -> str | None:
 
 
 def _dependency_reasons(artifacts: tuple[PlanArtifact, ...]) -> tuple[str, ...]:
-    known = {item.target_name for item in artifacts}
+    index = {item.target_name: position for position, item in enumerate(artifacts)}
     return tuple(
-        f"unresolved dependency {dep} on {artifact.target_name}"
-        for artifact in artifacts
+        reason
+        for position, artifact in enumerate(artifacts)
         for dep in artifact.dependencies
-        if dep not in known
+        if (reason := _one_dep_reason(position, artifact, dep, index)) is not None
     )
+
+
+def _one_dep_reason(
+    position: int,
+    artifact: PlanArtifact,
+    dep: str,
+    index: dict[str, int],
+) -> str | None:
+    source = index.get(dep)
+    if source is None:
+        return f"unresolved dependency {dep} on {artifact.target_name}"
+    if source >= position:
+        return f"dependency {dep} is not before {artifact.target_name}"
+    return None
 
 
 def _refused_result(plan: DeploymentPlan, reasons: tuple[str, ...]) -> ApplyResult:

@@ -6,7 +6,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import ontobq
-from ontobq.bigquery.google import GoogleBigQueryReadExecutor, GoogleMutationExecutor
+from ontobq.bigquery.google import (
+    GoogleBigQueryReadExecutor,
+    GoogleMutationExecutor,
+    _client_for_project,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -125,3 +129,20 @@ def test_mutation_executor_sdk_error_returns_receipt() -> None:
     receipt = executor.execute_ddl("SELECT 1", target_name="t")
     assert not receipt.ok
     assert receipt.error == "ddl failed"
+
+
+class _ProjectRecordingSdk:
+    """Duck-typed SDK: records Client(project=...)."""
+
+    def __init__(self) -> None:
+        self.project: str | None = None
+
+    def Client(self, project: str | None = None) -> object:  # noqa: N802 - SDK surface
+        self.project = project
+        return object()
+
+
+def test_mutation_live_client_uses_configured_project() -> None:
+    sdk = _ProjectRecordingSdk()
+    _client_for_project(sdk, "my-project")
+    assert sdk.project == "my-project"
