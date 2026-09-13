@@ -8,9 +8,6 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    import pytest
-
 import ontobq
 from ontobq import (
     FakeBigQueryInspector,
@@ -37,6 +34,9 @@ from ontobq.tests.orchestrate_support import (
     commerce_inspector,
 )
 from ontobq.tests.paths import FIXTURES_DIR
+
+if TYPE_CHECKING:
+    import pytest
 
 _COMMERCE = FIXTURES_DIR / "commerce.yaml"
 _SEMANTICS = FIXTURES_DIR / "semantics"

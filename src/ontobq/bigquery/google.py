@@ -79,17 +79,26 @@ class GoogleBigQueryReadExecutor:
     """Read-only query executor backed by ``google.cloud.bigquery.Client``."""
 
     def __init__(self, client: object | None = None) -> None:
-        sdk = _load_bigquery()
-        self._client = _sdk_client(client, sdk)
-        self._job_config_cls = sdk.QueryJobConfig
+        self._job_config_cls: Any = None
+        if client is None:
+            sdk = _load_bigquery()
+            self._client: Any = _sdk_client(None, sdk)
+            self._job_config_cls = sdk.QueryJobConfig
+            return
+        self._client = client
 
     def dry_run(self, sql: str) -> QueryEstimate:
+        config_cls = self._job_config_cls
+        if config_cls is None:
+            config_cls = _load_bigquery().QueryJobConfig
+            self._job_config_cls = config_cls
         job = self._client.query(
-            sql, job_config=self._job_config_cls(dry_run=True, use_query_cache=False)
+            sql, job_config=config_cls(dry_run=True, use_query_cache=False)
         )
         return QueryEstimate(bytes_processed=_bytes_processed(job))
 
     def query(self, sql: str, *, max_rows: int) -> tuple[Mapping[str, object], ...]:
         if max_rows < 0:
             raise ValueError("max_rows must be >= 0")
-        return _rows_from_job(self._client.query(sql), max_rows)
+        job = self._client.query(sql)
+        return _rows_from_job(job.result(), max_rows)

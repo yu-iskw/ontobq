@@ -149,7 +149,7 @@ def _reusable(
         return False
     if validation.offline_only != offline_only or validation.include_integrity != include_integrity:
         return False
-    return _identity(domain) == _identity(loaded)
+    return domain == loaded
 
 
 def _domain_from_source(source: str | Path | Domain) -> Domain | None:

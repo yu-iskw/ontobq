@@ -64,8 +64,9 @@ def _bool_text(value: bool) -> str:
 
 
 def _summary_lines(summary: ValidationSummary) -> tuple[str, ...]:
+    layers = ",".join(summary.layers_run)
     return (
-        f"layers {','.join(summary.layers_run)}",
+        f"layers {layers}",
         f"errors {summary.error_count} warnings {summary.warning_count}",
         f"integrity_ran {_bool_text(summary.integrity_ran)}",
     )

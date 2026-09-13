@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from ontobq.bigquery.fake import FakeBigQueryInspector, FakeCatalog
 from ontobq.bigquery.inspector import ColumnSnapshot, ScalarDryRunResult, SourceSnapshot
 from ontobq.bq import FakeBigQueryReadExecutor, QueryEstimate
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
 
 _CUSTOMERS = "my-project.raw.customers"
 _ORDERS = "my-project.raw.orders"
@@ -77,5 +82,5 @@ class FailingExecutor:
     def dry_run(self, sql: str) -> QueryEstimate:
         raise AssertionError(f"executor must not dry-run {sql[:32]}")
 
-    def query(self, sql: str, *, max_rows: int) -> tuple[object, ...]:
+    def query(self, sql: str, *, max_rows: int) -> Sequence[Mapping[str, object]]:
         raise AssertionError(f"executor must not query {sql[:32]} max_rows={max_rows}")

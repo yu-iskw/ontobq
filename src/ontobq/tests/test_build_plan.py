@@ -8,9 +8,6 @@ from typing import TYPE_CHECKING
 
 import pytest  # pyright: ignore[reportMissingImports]
 
-if TYPE_CHECKING:
-    from pathlib import Path
-
 from ontobq import (
     FakeBigQueryInspector,
     compile_integrity_queries,
@@ -30,6 +27,9 @@ from ontobq.tests.orchestrate_support import (
     commerce_inspector,
 )
 from ontobq.tests.paths import FIXTURES_DIR, TESTS_DIR
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 _COMMERCE = FIXTURES_DIR / "commerce.yaml"
 _GOLDEN = TESTS_DIR / "goldens" / "plan" / "commerce.json"
@@ -136,6 +136,46 @@ def test_reused_validation_matches_fresh_plan() -> None:
         validation=result,
     )
     assert reused == _plan_commerce()
+
+
+def test_reuse_rejected_when_identity_matches_but_contents_differ() -> None:
+    commerce = load_domain(_COMMERCE)
+    changed = load_domain(FIXTURES_DIR / "expression-mapping.yaml")
+    assert commerce.metadata.name == changed.metadata.name
+    assert commerce.bigquery == changed.bigquery
+    assert commerce != changed
+    result = validate_domain(
+        commerce, inspector=commerce_inspector(), query_executor=clean_executor()
+    )
+    plan = build_plan(
+        changed,
+        inspector=commerce_inspector(),
+        query_executor=clean_executor(),
+        validation=result,
+    )
+    names = tuple(item.semantic_name for item in plan.artifacts)
+    assert "Customer" not in names
+    assert "PLACED" not in names
+    assert "Order" in names
+
+
+def test_stale_validation_not_reused_after_source_file_change(tmp_path: Path) -> None:
+    path = tmp_path / "domain.yaml"
+    path.write_text(_COMMERCE.read_text(encoding="utf-8"), encoding="utf-8")
+    result = validate_domain(
+        path, inspector=commerce_inspector(), query_executor=clean_executor()
+    )
+    expression = FIXTURES_DIR / "expression-mapping.yaml"
+    path.write_text(expression.read_text(encoding="utf-8"), encoding="utf-8")
+    plan = build_plan(
+        path,
+        inspector=commerce_inspector(),
+        query_executor=clean_executor(),
+        validation=result,
+    )
+    names = tuple(item.semantic_name for item in plan.artifacts)
+    assert "Customer" not in names
+    assert "Order" in names
 
 
 def test_offline_plan_records_integrity_not_ran() -> None:
