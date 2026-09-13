@@ -68,9 +68,29 @@ def fixture_path(name: str) -> Path:
     return FIXTURES_DIR / name
 
 
+_ALL_TOKENS = (PROJECT_TOKEN, DATASET_TOKEN, GRAPH_TOKEN, RUN_ID_TOKEN)
+
+
+def _reject_token_injection(coords: RunCoordinates) -> None:
+    """Refuse coordinate values that themselves contain an interpolation token.
+
+    ``substitute_tokens`` applies ``str.replace`` once per token, in sequence.
+    Without this guard, a value that happens to contain another token's exact
+    text -- e.g. a misconfigured ``ONTOBQ_E2E_DATASET`` containing the literal
+    substring ``${ONTOBQ_E2E_RUN_ID}`` -- would be silently rewritten by a
+    later replacement instead of being rejected, letting ``_seed`` run DDL
+    against a dataset the caller never actually specified.
+    """
+
+    for value in (coords.project, coords.dataset, coords.graph, coords.run_id):
+        if any(token in value for token in _ALL_TOKENS):
+            raise ValueError("E2E coordinate value contains an unresolved interpolation token")
+
+
 def substitute_tokens(text: str, coords: RunCoordinates) -> str:
     """Replace project/dataset/graph/run-id tokens. Refuse leftover RFC or unresolved tokens."""
 
+    _reject_token_injection(coords)
     rendered = (
         text.replace(PROJECT_TOKEN, coords.project)
         .replace(DATASET_TOKEN, coords.dataset)
@@ -79,8 +99,7 @@ def substitute_tokens(text: str, coords: RunCoordinates) -> str:
     )
     if RFC_FIXTURE_PROJECT in rendered:
         raise ValueError("refusing to materialize RFC fixture project my-project")
-    remaining = (PROJECT_TOKEN, DATASET_TOKEN, GRAPH_TOKEN, RUN_ID_TOKEN)
-    if any(token in rendered for token in remaining):
+    if any(token in rendered for token in _ALL_TOKENS):
         raise ValueError("unresolved E2E interpolation tokens remain")
     return rendered
 

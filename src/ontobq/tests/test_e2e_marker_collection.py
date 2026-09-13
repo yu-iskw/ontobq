@@ -34,11 +34,13 @@ from ontobq.tests.paths import REPO_ROOT
 
 _E2E_DIR = REPO_ROOT / "src" / "ontobq" / "tests" / "e2e"
 
+# pytest's own exit code for "collection succeeded, zero tests matched" -- its
+# normal outcome when a marker expression deselects everything, not a failure.
+_NO_TESTS_COLLECTED_EXIT_CODE = 5
+_OK_COLLECT_EXIT_CODES = (0, _NO_TESTS_COLLECTED_EXIT_CODE)
+
 
 def _collected_node_ids(*extra_args: str) -> set[str]:
-    # returncode 5 means "no tests collected", pytest's normal outcome when a
-    # marker expression deselects everything; that is a valid empty result
-    # here, not a collection failure.
     result = subprocess.run(  # noqa: S603
         [sys.executable, "-m", "pytest", "--collect-only", "-q", str(_E2E_DIR), *extra_args],
         check=False,
@@ -46,7 +48,7 @@ def _collected_node_ids(*extra_args: str) -> set[str]:
         text=True,
         cwd=REPO_ROOT,
     )
-    if result.returncode not in (0, 5):
+    if result.returncode not in _OK_COLLECT_EXIT_CODES:
         raise AssertionError(f"pytest --collect-only failed:\n{result.stdout}\n{result.stderr}")
     return {line for line in result.stdout.splitlines() if "::" in line}
 

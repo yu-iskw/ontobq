@@ -90,3 +90,19 @@ def test_enabled_when_gates_pass() -> None:
 def test_substitute_refuses_rfc_project() -> None:
     with pytest.raises(ValueError, match="my-project"):
         substitute_tokens("project: my-project", RunCoordinates(project="safe-proj", dataset="ds"))
+
+
+def test_substitute_refuses_a_token_hidden_inside_a_coordinate_value() -> None:
+    """A dataset (or project/graph/run_id) containing another token is rejected, not rewritten.
+
+    Sequential ``str.replace`` calls would otherwise let a value inserted by
+    an earlier replacement be recursively matched by a later one -- e.g. a
+    dataset literally equal to ``${ONTOBQ_E2E_RUN_ID}`` would be silently
+    turned into the generated run id instead of failing fast.
+    """
+
+    poisoned = RunCoordinates(
+        project="safe-proj", dataset="${ONTOBQ_E2E_RUN_ID}", run_id="abcd1234"
+    )
+    with pytest.raises(ValueError, match="interpolation token"):
+        substitute_tokens("dataset: ${ONTOBQ_E2E_DATASET}", poisoned)
