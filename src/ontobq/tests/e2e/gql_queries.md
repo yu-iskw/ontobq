@@ -18,8 +18,8 @@ Seed ids are fixed in `fixtures/seed.sql`.
 
 `created_at` is `DATETIME`; the mapping expression is `TIMESTAMP(created_at)` (UTC).
 
-| order_id | createdAt / placedAt |
-| --- | --- |
+| order_id   | createdAt / placedAt                 |
+| ---------- | ------------------------------------ |
 | `ord_1001` | `TIMESTAMP '2024-01-15 10:00:00+00'` |
 | `ord_1002` | `TIMESTAMP '2024-02-01 12:30:00+00'` |
 | `ord_2001` | `TIMESTAMP '2024-03-10 08:00:00+00'` |
@@ -54,11 +54,11 @@ ORDER BY customer_id, order_id
 
 ### Expected rows (3)
 
-| customer_id | order_id | status |
-| --- | --- | --- |
-| `cust_ada` | `ord_1001` | `open` |
-| `cust_ada` | `ord_1002` | `shipped` |
-| `cust_bob` | `ord_2001` | `open` |
+| customer_id | order_id   | status    |
+| ----------- | ---------- | --------- |
+| `cust_ada`  | `ord_1001` | `open`    |
+| `cust_ada`  | `ord_1002` | `shipped` |
+| `cust_bob`  | `ord_2001` | `open`    |
 
 ---
 
@@ -107,12 +107,12 @@ ORDER BY customer_id, order_id, sku
 
 ### Expected rows (4)
 
-| customer_id | order_id | sku | quantity | product_id | product_name |
-| --- | --- | --- | --- | --- | --- |
-| `cust_ada` | `ord_1001` | `SKU_G` | 1 | `prod_gadget` | `Gadget` |
-| `cust_ada` | `ord_1001` | `SKU_W` | 2 | `prod_widget` | `Widget` |
-| `cust_ada` | `ord_1002` | `SKU_W` | 4 | `prod_widget` | `Widget` |
-| `cust_bob` | `ord_2001` | `SKU_S` | 3 | `prod_sprocket` | `Sprocket` |
+| customer_id | order_id   | sku     | quantity | product_id      | product_name |
+| ----------- | ---------- | ------- | -------- | --------------- | ------------ |
+| `cust_ada`  | `ord_1001` | `SKU_G` | 1        | `prod_gadget`   | `Gadget`     |
+| `cust_ada`  | `ord_1001` | `SKU_W` | 2        | `prod_widget`   | `Widget`     |
+| `cust_ada`  | `ord_1002` | `SKU_W` | 4        | `prod_widget`   | `Widget`     |
+| `cust_bob`  | `ord_2001` | `SKU_S` | 3        | `prod_sprocket` | `Sprocket`   |
 
 Ada → `ord_1001` → (`ord_1001`, `SKU_W`) → Widget is the smallest complete 4-hop path.
 
@@ -152,8 +152,8 @@ ORDER BY order_id, sku
 
 ### Expected rows (2) — same SKU, distinct composite keys
 
-| order_id | sku | product_id |
-| --- | --- | --- |
+| order_id   | sku     | product_id    |
+| ---------- | ------- | ------------- |
 | `ord_1001` | `SKU_W` | `prod_widget` |
 | `ord_1002` | `SKU_W` | `prod_widget` |
 

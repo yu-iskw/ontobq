@@ -24,14 +24,14 @@ Customer
  Product
 ```
 
-| Item | Freeze |
-| --- | --- |
-| Domain `metadata.name` | `commerce_e2e` → views `_ontobq_commerce_e2e_n_*` / `_e_*` |
-| Graph object | `${ONTOBQ_E2E_GRAPH}` default **`commerce_e2e_graph`** (must not collide with view names) |
-| Composite key | OrderItem `[orderId, sku]`; `CONTAINS` and `OF` endpoints use the full tuple |
-| Expression | `TIMESTAMP(created_at)` on Order.`createdAt` and PLACED.`placedAt` (non-key) |
-| Source tables | Same dataset as the graph, prefix `e2e_*`. Never RFC `my-project.raw` |
-| GQL labels | Semantic (`:Customer`, `:PLACED`, `:OrderItem`, `:OF`), never `_ontobq_*` |
+| Item                   | Freeze                                                                                    |
+| ---------------------- | ----------------------------------------------------------------------------------------- |
+| Domain `metadata.name` | `commerce_e2e` → views `_ontobq_commerce_e2e_n_*` / `_e_*`                                |
+| Graph object           | `${ONTOBQ_E2E_GRAPH}` default **`commerce_e2e_graph`** (must not collide with view names) |
+| Composite key          | OrderItem `[orderId, sku]`; `CONTAINS` and `OF` endpoints use the full tuple              |
+| Expression             | `TIMESTAMP(created_at)` on Order.`createdAt` and PLACED.`placedAt` (non-key)              |
+| Source tables          | Same dataset as the graph, prefix `e2e_*`. Never RFC `my-project.raw`                     |
+| GQL labels             | Semantic (`:Customer`, `:PLACED`, `:OrderItem`, `:OF`), never `_ontobq_*`                 |
 
 ---
 
@@ -39,13 +39,13 @@ Customer
 
 Refuse to run unless **all** of these are set. Unset or mismatch ⇒ skip or fail-fast, **zero DDL**, never fall back to ADC’s project.
 
-| Variable | Required | Role |
-| --- | --- | --- |
-| `ONTOBQ_E2E` | yes | Must be `1`. Pytest marker `e2e` is not enough alone. |
-| `ONTOBQ_E2E_PROJECT` | yes | Live project id. Never RFC `my-project`. Never ADC default. |
-| `ONTOBQ_E2E_DATASET` | yes | Test-scoped dataset that supports property graphs. |
-| `ONTOBQ_E2E_ALLOWED_PROJECTS` | yes | Comma-separated allowlist. **Unset ⇒ skip/fail, never mutate.** |
-| `ONTOBQ_E2E_GRAPH` | no | Graph Identifier. Default `commerce_e2e_graph` (`^[A-Za-z][A-Za-z0-9_]*$`). |
+| Variable                               | Required        | Role                                                                                |
+| -------------------------------------- | --------------- | ----------------------------------------------------------------------------------- |
+| `ONTOBQ_E2E`                           | yes             | Must be `1`. Pytest marker `e2e` is not enough alone.                               |
+| `ONTOBQ_E2E_PROJECT`                   | yes             | Live project id. Never RFC `my-project`. Never ADC default.                         |
+| `ONTOBQ_E2E_DATASET`                   | yes             | Test-scoped dataset that supports property graphs.                                  |
+| `ONTOBQ_E2E_ALLOWED_PROJECTS`          | yes             | Comma-separated allowlist. **Unset ⇒ skip/fail, never mutate.**                     |
+| `ONTOBQ_E2E_GRAPH`                     | no              | Graph Identifier. Default `commerce_e2e_graph` (`^[A-Za-z][A-Za-z0-9_]*$`).         |
 | `GOOGLE_APPLICATION_CREDENTIALS` / ADC | for live client | `google.cloud.bigquery.Client()` uses ADC, not `ONTOBQ_*`. No SA JSON in this repo. |
 
 **Allowlist rules** (implement in `conftest.py`):
@@ -121,11 +121,11 @@ Against **one** allowlisted project/dataset:
 
 Apply-created objects (domain `commerce_e2e`, default graph `commerce_e2e_graph`):
 
-| Kind | Name |
-| --- | --- |
-| Graph | `{project}.{dataset}.commerce_e2e_graph` |
+| Kind       | Name                                                                        |
+| ---------- | --------------------------------------------------------------------------- |
+| Graph      | `{project}.{dataset}.commerce_e2e_graph`                                    |
 | Node views | `_ontobq_commerce_e2e_n_customer`, `_n_order`, `_n_orderitem`, `_n_product` |
-| Edge views | `_ontobq_commerce_e2e_e_placed`, `_e_contains`, `_e_of` |
+| Edge views | `_ontobq_commerce_e2e_e_placed`, `_e_contains`, `_e_of`                     |
 
 ---
 
@@ -149,18 +149,18 @@ make test-e2e
 
 ## Fixture map
 
-| File | Purpose |
-| --- | --- |
-| `fixtures/commerce_e2e.yaml` | Happy-path Domain (interpolate then load) |
-| `fixtures/seed.sql` | Deterministic Customer / Order / OrderItem / Product rows |
-| `fixtures/invalid_obq102.yaml` | Missing column `country_code` on `e2e_customers` |
-| `fixtures/invalid_obq104.yaml` + `schema_obq104.sql` | string vs INT64 `country` on isolated table |
-| `fixtures/invalid_obq202.yaml` + `dirty_obq202.sql` | Duplicate Customer key |
-| `fixtures/invalid_obq204.yaml` + `dirty_obq204.sql` | Duplicate PLACED key (split node/edge tables) |
-| `fixtures/invalid_obq205.yaml` + `dirty_obq205.sql` | Orphan PLACED `from` |
-| `fixtures/invalid_obq206.yaml` + `dirty_obq206.sql` | Orphan PLACED `to` (split sources; required) |
-| `fixtures/teardown.sql` | Graph → views → tables; never DROP DATASET |
-| `gql_queries.md` | Single-hop, multi-hop, composite-key GQL + expected rows |
+| File                                                 | Purpose                                                   |
+| ---------------------------------------------------- | --------------------------------------------------------- |
+| `fixtures/commerce_e2e.yaml`                         | Happy-path Domain (interpolate then load)                 |
+| `fixtures/seed.sql`                                  | Deterministic Customer / Order / OrderItem / Product rows |
+| `fixtures/invalid_obq102.yaml`                       | Missing column `country_code` on `e2e_customers`          |
+| `fixtures/invalid_obq104.yaml` + `schema_obq104.sql` | string vs INT64 `country` on isolated table               |
+| `fixtures/invalid_obq202.yaml` + `dirty_obq202.sql`  | Duplicate Customer key                                    |
+| `fixtures/invalid_obq204.yaml` + `dirty_obq204.sql`  | Duplicate PLACED key (split node/edge tables)             |
+| `fixtures/invalid_obq205.yaml` + `dirty_obq205.sql`  | Orphan PLACED `from`                                      |
+| `fixtures/invalid_obq206.yaml` + `dirty_obq206.sql`  | Orphan PLACED `to` (split sources; required)              |
+| `fixtures/teardown.sql`                              | Graph → views → tables; never DROP DATASET                |
+| `gql_queries.md`                                     | Single-hop, multi-hop, composite-key GQL + expected rows  |
 
 Integrity queries **source** tables. GQL hits **views + graph**. Do not poison happy-path seed tables. Assert exact diagnostic codes, not message substrings.
 
@@ -185,12 +185,12 @@ Hand-written queries only. Compilers do not emit `MATCH`.
 
 On `origin/main`, bullets 1–5 are **unit-proven** (fakes/goldens). This suite must still prove **live**:
 
-| RFC bullet | Live proof this package owns |
-| --- | --- |
-| 1 layers 3–4 | `test_mvp_happy_path.py` against real catalog/source tables |
-| 2 plan-after-apply | `test_mvp_determinism.py` |
-| 3–4 apply / reapply | session `apply_plan` + second apply via `GoogleMutationExecutor` |
-| 5 exact codes, zero DDL | `test_mvp_negative.py` `OBQ102/104/202/204/205/206` + recording mutator |
-| 6 GQL (absent on main) | GRAPH_TABLE single-hop + Customer→…→Product multi-hop; composite OrderItem |
+| RFC bullet              | Live proof this package owns                                               |
+| ----------------------- | -------------------------------------------------------------------------- |
+| 1 layers 3–4            | `test_mvp_happy_path.py` against real catalog/source tables                |
+| 2 plan-after-apply      | `test_mvp_determinism.py`                                                  |
+| 3–4 apply / reapply     | session `apply_plan` + second apply via `GoogleMutationExecutor`           |
+| 5 exact codes, zero DDL | `test_mvp_negative.py` `OBQ102/104/202/204/205/206` + recording mutator    |
+| 6 GQL (absent on main)  | GRAPH_TABLE single-hop + Customer→…→Product multi-hop; composite OrderItem |
 
 If live graph DDL disagrees with `#14` goldens, file a follow-up — do not expand the ontology here. **Leave RFC #8 open.**
