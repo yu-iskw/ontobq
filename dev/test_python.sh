@@ -28,7 +28,11 @@ if [[ ${#TEST_DIRS[@]} -eq 0 ]]; then
 fi
 
 cd "${MODULE_DIR}"
+# Live BigQuery MVP suite: path skip AND marker skip so default CI stays offline.
+E2E_DIR="${MODULE_DIR}/src/ontobq/tests/e2e"
 uv run pytest -v -s --cache-clear \
+	-m "not e2e" \
+	--ignore="${E2E_DIR}" \
 	--cov="${MODULE_DIR}/src/ontobq" \
 	--cov-report=term-missing \
 	--cov-report=xml \

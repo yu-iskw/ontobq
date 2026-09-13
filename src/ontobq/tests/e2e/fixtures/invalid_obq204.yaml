@@ -1,0 +1,84 @@
+# TEMPLATE — substitute ${ONTOBQ_E2E_PROJECT} ${ONTOBQ_E2E_DATASET} ${ONTOBQ_E2E_GRAPH} ${ONTOBQ_E2E_RUN_ID}
+# OBQ204: duplicate PLACED edge key on e2e_orders_obq204; Order nodes on e2e_orders_obq204_nodes
+# (one row) so Order does not also fail OBQ202. Customer stays on happy-path e2e_customers.
+# Do not apply this variant.
+# Expected: diagnostics[].code == "OBQ204"
+# Path: spec.relationships.PLACED.mapping.bigquery.key
+apiVersion: ontobq.dev/v1alpha1
+kind: Domain
+
+metadata:
+  name: commerce_e2e_obq204_${ONTOBQ_E2E_RUN_ID}
+  displayName: Commerce E2E OBQ204
+  description: Negative — duplicate relationship element key.
+
+spec:
+  bigquery:
+    project: ${ONTOBQ_E2E_PROJECT}
+    dataset: ${ONTOBQ_E2E_DATASET}
+    graph: ${ONTOBQ_E2E_GRAPH}
+
+  entities:
+    Customer:
+      key: [id]
+      properties:
+        id:
+          type: string
+          nullable: false
+        name:
+          type: string
+        country:
+          type: string
+      mapping:
+        bigquery:
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_customers_${ONTOBQ_E2E_RUN_ID}
+          properties:
+            id:
+              column: customer_id
+            name:
+              column: customer_name
+            country:
+              column: country
+
+    Order:
+      key: [id]
+      properties:
+        id:
+          type: string
+          nullable: false
+        createdAt:
+          type: timestamp
+        status:
+          type: string
+      mapping:
+        bigquery:
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_orders_obq204_nodes_${ONTOBQ_E2E_RUN_ID}
+          properties:
+            id:
+              column: order_id
+            createdAt:
+              expression: TIMESTAMP(created_at)
+            status:
+              column: status
+
+  relationships:
+    PLACED:
+      from: Customer
+      to: Order
+      properties:
+        placedAt:
+          type: timestamp
+      mapping:
+        bigquery:
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_orders_obq204_${ONTOBQ_E2E_RUN_ID}
+          key:
+            - column: order_id
+          from:
+            id:
+              column: customer_id
+          to:
+            id:
+              column: order_id
+          properties:
+            placedAt:
+              expression: TIMESTAMP(created_at)

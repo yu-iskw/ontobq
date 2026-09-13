@@ -1,0 +1,174 @@
+# TEMPLATE — substitute before load_domain / ontobq validate|plan|apply.
+# Tokens: ${ONTOBQ_E2E_PROJECT} ${ONTOBQ_E2E_DATASET} ${ONTOBQ_E2E_GRAPH} ${ONTOBQ_E2E_RUN_ID}
+# Unsubstituted tokens fail JSON Schema (table id / graph Identifier).
+# Never apply RFC my-project to a live account.
+# ${ONTOBQ_E2E_RUN_ID} suffix on the domain name and every source table keeps
+# parallel sessions from colliding on one allowlisted project/dataset.
+#
+# Graph: Customer -PLACED-> Order -CONTAINS-> OrderItem -OF-> Product
+# OrderItem composite key [orderId, sku]. Expression: TIMESTAMP(created_at).
+apiVersion: ontobq.dev/v1alpha1
+kind: Domain
+
+metadata:
+  name: commerce_e2e_${ONTOBQ_E2E_RUN_ID}
+  displayName: Commerce E2E
+  description: Live BigQuery MVP acceptance domain (issue 17). RFC #8 stays OPEN.
+
+spec:
+  bigquery:
+    project: ${ONTOBQ_E2E_PROJECT}
+    dataset: ${ONTOBQ_E2E_DATASET}
+    graph: ${ONTOBQ_E2E_GRAPH}
+
+  entities:
+    Customer:
+      description: A person or organization that places orders.
+      key: [id]
+      properties:
+        id:
+          type: string
+          nullable: false
+        name:
+          type: string
+        country:
+          type: string
+      mapping:
+        bigquery:
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_customers_${ONTOBQ_E2E_RUN_ID}
+          properties:
+            id:
+              column: customer_id
+            name:
+              column: customer_name
+            country:
+              column: country
+
+    Order:
+      description: A customer purchase.
+      key: [id]
+      properties:
+        id:
+          type: string
+          nullable: false
+        createdAt:
+          type: timestamp
+        status:
+          type: string
+      mapping:
+        bigquery:
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_orders_${ONTOBQ_E2E_RUN_ID}
+          properties:
+            id:
+              column: order_id
+            createdAt:
+              expression: TIMESTAMP(created_at)
+            status:
+              column: status
+
+    OrderItem:
+      description: A line on an order. Composite element key (orderId, sku).
+      key: [orderId, sku]
+      properties:
+        orderId:
+          type: string
+          nullable: false
+        sku:
+          type: string
+          nullable: false
+        productId:
+          type: string
+          nullable: false
+        quantity:
+          type: integer
+      mapping:
+        bigquery:
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_order_items_${ONTOBQ_E2E_RUN_ID}
+          properties:
+            orderId:
+              column: order_id
+            sku:
+              column: sku
+            productId:
+              column: product_id
+            quantity:
+              column: qty
+
+    Product:
+      description: A catalog product.
+      key: [id]
+      properties:
+        id:
+          type: string
+          nullable: false
+        name:
+          type: string
+      mapping:
+        bigquery:
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_products_${ONTOBQ_E2E_RUN_ID}
+          properties:
+            id:
+              column: product_id
+            name:
+              column: product_name
+
+  relationships:
+    PLACED:
+      description: A Customer placed an Order.
+      from: Customer
+      to: Order
+      properties:
+        placedAt:
+          type: timestamp
+      mapping:
+        bigquery:
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_orders_${ONTOBQ_E2E_RUN_ID}
+          key:
+            - column: order_id
+          from:
+            id:
+              column: customer_id
+          to:
+            id:
+              column: order_id
+          properties:
+            placedAt:
+              expression: TIMESTAMP(created_at)
+
+    CONTAINS:
+      description: An Order contains an OrderItem.
+      from: Order
+      to: OrderItem
+      mapping:
+        bigquery:
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_order_items_${ONTOBQ_E2E_RUN_ID}
+          key:
+            - column: order_id
+            - column: sku
+          from:
+            id:
+              column: order_id
+          to:
+            orderId:
+              column: order_id
+            sku:
+              column: sku
+
+    OF:
+      description: An OrderItem is of a Product. Frozen identifier for issue 17 (RFC #8 is silent).
+      from: OrderItem
+      to: Product
+      mapping:
+        bigquery:
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_order_items_${ONTOBQ_E2E_RUN_ID}
+          key:
+            - column: order_id
+            - column: sku
+          from:
+            orderId:
+              column: order_id
+            sku:
+              column: sku
+          to:
+            id:
+              column: product_id

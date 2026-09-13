@@ -1,0 +1,86 @@
+# TEMPLATE — substitute ${ONTOBQ_E2E_PROJECT} ${ONTOBQ_E2E_DATASET} ${ONTOBQ_E2E_GRAPH} ${ONTOBQ_E2E_RUN_ID}
+# OBQ206: PLACED to-endpoint order_id does not exist on Order's source.
+# MUST split tables: Order stays on happy-path e2e_orders; edge uses e2e_orders_edge_obq206.
+# Same-table PLACED/Order goldens cannot produce a non-NULL destination orphan.
+# from.customer_id = cust_ada exists (no OBQ205). Unique edge key (no OBQ204).
+# Do not apply this variant.
+# Expected: diagnostics[].code == "OBQ206"
+# Path: spec.relationships.PLACED.mapping.bigquery.to
+apiVersion: ontobq.dev/v1alpha1
+kind: Domain
+
+metadata:
+  name: commerce_e2e_obq206_${ONTOBQ_E2E_RUN_ID}
+  displayName: Commerce E2E OBQ206
+  description: Negative — orphan relationship destination endpoint.
+
+spec:
+  bigquery:
+    project: ${ONTOBQ_E2E_PROJECT}
+    dataset: ${ONTOBQ_E2E_DATASET}
+    graph: ${ONTOBQ_E2E_GRAPH}
+
+  entities:
+    Customer:
+      key: [id]
+      properties:
+        id:
+          type: string
+          nullable: false
+        name:
+          type: string
+        country:
+          type: string
+      mapping:
+        bigquery:
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_customers_${ONTOBQ_E2E_RUN_ID}
+          properties:
+            id:
+              column: customer_id
+            name:
+              column: customer_name
+            country:
+              column: country
+
+    Order:
+      key: [id]
+      properties:
+        id:
+          type: string
+          nullable: false
+        createdAt:
+          type: timestamp
+        status:
+          type: string
+      mapping:
+        bigquery:
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_orders_${ONTOBQ_E2E_RUN_ID}
+          properties:
+            id:
+              column: order_id
+            createdAt:
+              expression: TIMESTAMP(created_at)
+            status:
+              column: status
+
+  relationships:
+    PLACED:
+      from: Customer
+      to: Order
+      properties:
+        placedAt:
+          type: timestamp
+      mapping:
+        bigquery:
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_orders_edge_obq206_${ONTOBQ_E2E_RUN_ID}
+          key:
+            - column: order_id
+          from:
+            id:
+              column: customer_id
+          to:
+            id:
+              column: order_id
+          properties:
+            placedAt:
+              expression: TIMESTAMP(created_at)

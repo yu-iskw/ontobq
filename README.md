@@ -13,7 +13,9 @@ The Google Cloud adapter lives in `ontobq.bigquery.google` and is an
 optional extra (`pip install ontobq[bigquery]`). Default tests use
 `FakeBigQueryInspector` / `FakeBigQueryReadExecutor` /
 `FakeMutationExecutor` and do not need a GCP project.
-Keep RFC #8 open until issue 17.
+Keep RFC #8 open until a human accepts issue 17 evidence.
+Live BigQuery MVP acceptance lives in [`src/ontobq/tests/e2e/README.md`](src/ontobq/tests/e2e/README.md)
+and is skipped by `make test` unless you run `make test-e2e` with allowlisted env.
 
 ## Features
 
