@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest  # pyright: ignore[reportMissingImports]
+
 from ontobq.tests.e2e.gates import (
     ALLOWED_ENV,
     DATASET_ENV,
@@ -25,9 +27,7 @@ def test_missing_project_or_dataset_skips() -> None:
 
 
 def test_unset_allowlist_refuses() -> None:
-    decision = decide_e2e(
-        {ENABLE_ENV: "1", PROJECT_ENV: "demo-proj", DATASET_ENV: "e2e_ds"}
-    )
+    decision = decide_e2e({ENABLE_ENV: "1", PROJECT_ENV: "demo-proj", DATASET_ENV: "e2e_ds"})
     assert not decision.enabled
     assert ALLOWED_ENV in decision.reason
 
@@ -80,9 +80,5 @@ def test_enabled_when_gates_pass() -> None:
 
 
 def test_substitute_refuses_rfc_project() -> None:
-    try:
+    with pytest.raises(ValueError, match="my-project"):
         substitute_tokens("project: my-project", "safe-proj", "ds")
-    except ValueError as error:
-        assert "my-project" in str(error)
-    else:
-        raise AssertionError("expected refusal of RFC fixture project")

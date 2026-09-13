@@ -17,11 +17,10 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Iterator
 from dataclasses import dataclass
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-import pytest
+import pytest  # pyright: ignore[reportMissingImports]
 
 from ontobq import apply_plan, build_plan
 from ontobq.bigquery.google import (
@@ -38,6 +37,10 @@ from ontobq.tests.e2e.templates import (
     materialize_text,
     sql_statements,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+    from pathlib import Path
 
 pytestmark = pytest.mark.e2e
 

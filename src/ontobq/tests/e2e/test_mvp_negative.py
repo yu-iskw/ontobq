@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
-import pytest
+import pytest  # pyright: ignore[reportMissingImports]
 
 from ontobq.cli import main
 from ontobq.orchestrate.plan import PlanBlockedError, build_plan
@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from ontobq.tests.e2e.conftest import LiveE2E
+
 
 def _variant_path(live: LiveE2E, filename: str) -> Path:
     return materialize_file(
@@ -58,7 +59,7 @@ def _assert_apply_not_invoked(live: LiveE2E, path: Path) -> None:
         mutator=recording,
     )
     assert code == 1
-    assert recording.calls == []
+    assert not recording.calls
 
 
 @pytest.mark.parametrize(("expected", "filename"), NEGATIVE_FILES)

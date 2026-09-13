@@ -21,9 +21,9 @@ from pathlib import Path
 from ontobq.tests.e2e.gates import GRAPH_NAME, RFC_FIXTURE_PROJECT
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
-PROJECT_TOKEN = "${ONTOBQ_E2E_PROJECT}"
-DATASET_TOKEN = "${ONTOBQ_E2E_DATASET}"
-GRAPH_TOKEN = "${ONTOBQ_E2E_GRAPH}"
+PROJECT_TOKEN = "${ONTOBQ_E2E_PROJECT}"  # noqa: S105 -- interpolation placeholder, not a secret
+DATASET_TOKEN = "${ONTOBQ_E2E_DATASET}"  # noqa: S105 -- interpolation placeholder, not a secret
+GRAPH_TOKEN = "${ONTOBQ_E2E_GRAPH}"  # noqa: S105 -- interpolation placeholder, not a secret
 HAPPY_YAML = "commerce_e2e.yaml"
 SEED_SQL = "seed.sql"
 TEARDOWN_SQL = "teardown.sql"
@@ -73,9 +73,7 @@ def materialize_text(name: str, project: str, dataset: str, graph: str) -> str:
     return substitute_tokens(original, project, dataset, graph)
 
 
-def materialize_file(
-    name: str, destination: Path, project: str, dataset: str, graph: str
-) -> Path:
+def materialize_file(name: str, destination: Path, project: str, dataset: str, graph: str) -> Path:
     """Write an interpolated fixture copy and return the destination path."""
 
     destination.write_text(materialize_text(name, project, dataset, graph), encoding="utf-8")
@@ -89,4 +87,6 @@ def sql_statements(script: str) -> tuple[str, ...]:
 
 
 def _has_sql(statement: str) -> bool:
-    return any(line.strip() and not line.strip().startswith("--") for line in statement.splitlines())
+    return any(
+        line.strip() and not line.strip().startswith("--") for line in statement.splitlines()
+    )

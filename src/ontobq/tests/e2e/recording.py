@@ -16,7 +16,10 @@
 
 from __future__ import annotations
 
-from ontobq.bq.mutator import MutationExecutor, MutationIdentity, MutationReceipt
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ontobq.bq.mutator import MutationExecutor, MutationIdentity, MutationReceipt
 
 
 class RecordingMutationExecutor:

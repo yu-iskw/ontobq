@@ -28,7 +28,7 @@ Seed ids are fixed in `fixtures/seed.sql`.
 
 ## 1. Single-hop: `(:Customer)-[:PLACED]->(:Order)`
 
-### GRAPH_TABLE variant
+### GRAPH_TABLE variant (single-hop)
 
 ```sql
 SELECT
@@ -43,7 +43,7 @@ FROM GRAPH_TABLE(
 ORDER BY customer_id, order_id;
 ```
 
-### GRAPH MATCH variant
+### GRAPH MATCH variant (single-hop)
 
 ```sql
 GRAPH `${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.${ONTOBQ_E2E_GRAPH}`
@@ -66,7 +66,7 @@ ORDER BY customer_id, order_id
 
 Required RFC / issue 17 evidence: at least one deterministic multi-hop result.
 
-### GRAPH_TABLE variant
+### GRAPH_TABLE variant (multi-hop)
 
 ```sql
 SELECT
@@ -90,7 +90,7 @@ FROM GRAPH_TABLE(
 ORDER BY customer_id, order_id, sku;
 ```
 
-### GRAPH MATCH variant
+### GRAPH MATCH variant (multi-hop)
 
 ```sql
 GRAPH `${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.${ONTOBQ_E2E_GRAPH}`
@@ -122,7 +122,7 @@ Ada → `ord_1001` → (`ord_1001`, `SKU_W`) → Widget is the smallest complete
 
 Proves two OrderItems can share `SKU_W` under different `orderId` values, and `OF` uses the full OrderItem key as the source endpoint.
 
-### GRAPH_TABLE variant
+### GRAPH_TABLE variant (composite key)
 
 ```sql
 SELECT
@@ -138,7 +138,7 @@ FROM GRAPH_TABLE(
 ORDER BY order_id, sku;
 ```
 
-### GRAPH MATCH variant
+### GRAPH MATCH variant (composite key)
 
 ```sql
 GRAPH `${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.${ONTOBQ_E2E_GRAPH}`

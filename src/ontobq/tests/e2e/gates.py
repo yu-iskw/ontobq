@@ -18,7 +18,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from collections.abc import Mapping
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 ENABLE_ENV = "ONTOBQ_E2E"
 PROJECT_ENV = "ONTOBQ_E2E_PROJECT"
@@ -66,23 +69,44 @@ def decide_e2e(environ: Mapping[str, str]) -> E2EDecision:
     """Skip (do not DDL) unless enable flag, project, dataset, and allowlist pass."""
 
     graph = environ.get(GRAPH_ENV, "").strip() or GRAPH_NAME
-    if environ.get(ENABLE_ENV, "") != "1":
-        return E2EDecision(False, f"{ENABLE_ENV} is not 1", "", "", graph)
     project = environ.get(PROJECT_ENV, "").strip()
     dataset = environ.get(DATASET_ENV, "").strip()
-    if not project or not dataset:
-        return E2EDecision(False, f"{PROJECT_ENV} and {DATASET_ENV} are required", "", "", graph)
-    if _GRAPH_ID.fullmatch(graph) is None:
-        return E2EDecision(False, f"{GRAPH_ENV} is not a BigQuery identifier", project, dataset, graph)
+    reason = _basic_gate_reason(environ, project, dataset, graph)
+    if reason:
+        return E2EDecision(False, reason, project, dataset, graph)
     return _allowlist_decision(project, dataset, graph, environ.get(ALLOWED_ENV, "").strip())
 
 
+def _basic_gate_reason(environ: Mapping[str, str], project: str, dataset: str, graph: str) -> str:
+    """Return a refusal reason for the enable/project/dataset/graph-id gates, or ``""``."""
+
+    checks = (
+        (environ.get(ENABLE_ENV, "") != "1", f"{ENABLE_ENV} is not 1"),
+        (not project or not dataset, f"{PROJECT_ENV} and {DATASET_ENV} are required"),
+        (_GRAPH_ID.fullmatch(graph) is None, f"{GRAPH_ENV} is not a BigQuery identifier"),
+    )
+    for failed, reason in checks:
+        if failed:
+            return reason
+    return ""
+
+
 def _allowlist_decision(project: str, dataset: str, graph: str, allowed: str) -> E2EDecision:
-    if not allowed:
-        return E2EDecision(False, f"{ALLOWED_ENV} is unset; refusing DDL", project, dataset, graph)
-    if project == RFC_FIXTURE_PROJECT:
-        return E2EDecision(False, "refusing RFC fixture project my-project", project, dataset, graph)
-    if not project_is_allowed(project, allowed):
-        reason = f"project {project} is not in {ALLOWED_ENV}"
-        return E2EDecision(False, reason, project, dataset, graph)
-    return E2EDecision(True, "", project, dataset, graph)
+    """True only when the allowlist and RFC-fixture-project gates both pass."""
+
+    reason = _allowlist_reason(project, allowed)
+    return E2EDecision(not reason, reason, project, dataset, graph)
+
+
+def _allowlist_reason(project: str, allowed: str) -> str:
+    """Return a refusal reason for the allowlist gate, or ``""`` when it passes."""
+
+    checks = (
+        (not allowed, f"{ALLOWED_ENV} is unset; refusing DDL"),
+        (project == RFC_FIXTURE_PROJECT, "refusing RFC fixture project my-project"),
+        (not project_is_allowed(project, allowed), f"project {project} is not in {ALLOWED_ENV}"),
+    )
+    for failed, reason in checks:
+        if failed:
+            return reason
+    return ""

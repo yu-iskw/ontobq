@@ -16,8 +16,12 @@
 
 from __future__ import annotations
 
-from ontobq.bq.mutator import MutationExecutor, MutationReceipt
+from typing import TYPE_CHECKING
+
 from ontobq.tests.e2e.templates import TEARDOWN_SQL, materialize_text, sql_statements
+
+if TYPE_CHECKING:
+    from ontobq.bq.mutator import MutationExecutor, MutationReceipt
 
 
 def qualified(project: str, dataset: str, name: str) -> str:

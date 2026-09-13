@@ -7,8 +7,6 @@ import subprocess
 import sys
 from typing import TYPE_CHECKING
 
-import pytest
-
 from ontobq import apply_plan, build_plan, load_domain, node_view_name, validate_domain
 from ontobq.cli import main
 from ontobq.naming import edge_view_name
@@ -31,6 +29,8 @@ from ontobq.tests.e2e.lifecycle import graph_target
 from ontobq.tests.e2e.recording import RecordingMutationExecutor
 
 if TYPE_CHECKING:
+    import pytest  # pyright: ignore[reportMissingImports]
+
     from ontobq.orchestrate.plan import DeploymentPlan
     from ontobq.tests.e2e.conftest import LiveE2E
 
@@ -46,7 +46,7 @@ def _plan(live: LiveE2E) -> DeploymentPlan:
 
 
 def _row_values(row: object) -> dict[str, str]:
-    mapping = dict(row)
+    mapping = dict(row)  # pyright: ignore[reportCallIssue, reportArgumentType]
     return {str(key): str(mapping[key]) for key in mapping}
 
 
@@ -106,9 +106,7 @@ def test_plan_orders_views_then_graph(e2e_live: LiveE2E) -> None:
     assert plan.artifacts[-1].target_name == graph_name
 
 
-def test_second_apply_is_safe(
-    e2e_live: LiveE2E, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_second_apply_is_safe(e2e_live: LiveE2E, capsys: pytest.CaptureFixture[str]) -> None:
     plan = _plan(e2e_live)
     recording = RecordingMutationExecutor(e2e_live.mutator)
     result = apply_plan(plan, recording)
