@@ -17,11 +17,15 @@
 from __future__ import annotations
 
 import importlib
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from ontobq.bigquery.inspector import ClientInspector, SdkShapedClient
+from ontobq.bq.executor import QueryEstimate
 
-__all__ = ["GoogleBigQueryInspector"]
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping
+
+__all__ = ["GoogleBigQueryInspector", "GoogleBigQueryReadExecutor"]
 
 
 def _load_bigquery() -> Any:
@@ -50,3 +54,49 @@ class GoogleBigQueryInspector(ClientInspector):
             (errors.BadRequest, errors.NotFound),
             sdk.QueryJobConfig,
         )
+
+
+def _bytes_processed(job: object) -> int:
+    processed = getattr(job, "total_bytes_processed", 0) or 0
+    return int(processed)
+
+
+def _row_mapping(row: object) -> dict[str, object]:
+    items = cast("Mapping[object, object]", row).items()
+    return {str(key): value for key, value in items}
+
+
+def _rows_from_job(job: object, max_rows: int) -> tuple[Mapping[str, object], ...]:
+    rows: list[Mapping[str, object]] = []
+    for index, row in enumerate(cast("Iterable[object]", job)):
+        if index >= max_rows:
+            break
+        rows.append(_row_mapping(row))
+    return tuple(rows)
+
+
+class GoogleBigQueryReadExecutor:
+    """Read-only query executor backed by ``google.cloud.bigquery.Client``."""
+
+    def __init__(self, client: object | None = None) -> None:
+        self._job_config_cls: Any = None
+        if client is None:
+            sdk = _load_bigquery()
+            self._client: Any = _sdk_client(None, sdk)
+            self._job_config_cls = sdk.QueryJobConfig
+            return
+        self._client = client
+
+    def dry_run(self, sql: str) -> QueryEstimate:
+        config_cls = self._job_config_cls
+        if config_cls is None:
+            config_cls = _load_bigquery().QueryJobConfig
+            self._job_config_cls = config_cls
+        job = self._client.query(sql, job_config=config_cls(dry_run=True, use_query_cache=False))
+        return QueryEstimate(bytes_processed=_bytes_processed(job))
+
+    def query(self, sql: str, *, max_rows: int) -> tuple[Mapping[str, object], ...]:
+        if max_rows < 0:
+            raise ValueError("max_rows must be >= 0")
+        job = self._client.query(sql)
+        return _rows_from_job(job.result(), max_rows)
