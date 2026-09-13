@@ -141,10 +141,10 @@ class GoogleMutationExecutor:
         del target_name
         try:
             job = self._client.query(sql)
-        except Exception as error:  # noqa: BLE001 - duck-typed SDK surface
+        except Exception as error:  # noqa: BLE001  # pylint: disable=broad-exception-caught
             return MutationReceipt(error=str(error))
         try:
             _wait_for_job(job)
-        except Exception as error:  # noqa: BLE001 - duck-typed SDK surface
+        except Exception as error:  # noqa: BLE001  # pylint: disable=broad-exception-caught
             return MutationReceipt(job_id=_optional_job_id(job), error=str(error))
         return MutationReceipt(job_id=_optional_job_id(job))

@@ -109,11 +109,11 @@ def _identity_reasons(plan: DeploymentPlan, executor: MutationExecutor) -> tuple
 
 
 def _hash_reasons(plan: DeploymentPlan) -> tuple[str, ...]:
-    reasons: list[str] = []
-    for artifact in plan.artifacts:
-        if _sql_hash(artifact.sql) != artifact.content_hash:
-            reasons.append(f"artifact hash mismatch: {artifact.target_name}")
-    return tuple(reasons)
+    return tuple(
+        f"artifact hash mismatch: {artifact.target_name}"
+        for artifact in plan.artifacts
+        if _sql_hash(artifact.sql) != artifact.content_hash
+    )
 
 
 def _structure_reasons(plan: DeploymentPlan) -> tuple[str, ...]:
@@ -129,11 +129,11 @@ def _structure_reasons(plan: DeploymentPlan) -> tuple[str, ...]:
 
 
 def _empty_field_reasons(artifacts: tuple[PlanArtifact, ...]) -> tuple[str, ...]:
-    reasons: list[str] = []
-    for artifact in artifacts:
-        if not artifact.kind or not artifact.sql:
-            reasons.append(f"empty kind or sql: {artifact.target_name}")
-    return tuple(reasons)
+    return tuple(
+        f"empty kind or sql: {artifact.target_name}"
+        for artifact in artifacts
+        if not artifact.kind or not artifact.sql
+    )
 
 
 def _duplicate_reasons(artifacts: tuple[PlanArtifact, ...]) -> tuple[str, ...]:
@@ -149,23 +149,30 @@ def _duplicate_reasons(artifacts: tuple[PlanArtifact, ...]) -> tuple[str, ...]:
 
 def _order_reasons(artifacts: tuple[PlanArtifact, ...]) -> tuple[str, ...]:
     kinds = tuple(item.kind for item in artifacts)
+    graph_reason = _graph_order_reason(kinds)
+    if graph_reason is not None:
+        return (graph_reason,)
+    if all(kind == "mapping_view" for kind in kinds[:-1]):
+        return ()
+    return ("mapping views must precede the property graph",)
+
+
+def _graph_order_reason(kinds: tuple[str, ...]) -> str | None:
     if "property_graph" not in kinds:
-        return ("property graph is missing",)
-    if kinds[-1] != "property_graph":
-        return ("property graph is not last",)
-    if any(kind != "mapping_view" for kind in kinds[:-1]):
-        return ("mapping views must precede the property graph",)
-    return ()
+        return "property graph is missing"
+    if kinds[-1] != "property_graph" or kinds.count("property_graph") != 1:
+        return "property graph is not last"
+    return None
 
 
 def _dependency_reasons(artifacts: tuple[PlanArtifact, ...]) -> tuple[str, ...]:
     known = {item.target_name for item in artifacts}
-    reasons: list[str] = []
-    for artifact in artifacts:
-        for dep in artifact.dependencies:
-            if dep not in known:
-                reasons.append(f"unresolved dependency {dep} on {artifact.target_name}")
-    return tuple(reasons)
+    return tuple(
+        f"unresolved dependency {dep} on {artifact.target_name}"
+        for artifact in artifacts
+        for dep in artifact.dependencies
+        if dep not in known
+    )
 
 
 def _refused_result(plan: DeploymentPlan, reasons: tuple[str, ...]) -> ApplyResult:
@@ -190,7 +197,7 @@ def _execute(plan: DeploymentPlan, executor: MutationExecutor) -> ApplyResult:
 def _run_one(executor: MutationExecutor, artifact: PlanArtifact) -> ArtifactApplyStatus:
     try:
         receipt = executor.execute_ddl(artifact.sql, target_name=artifact.target_name)
-    except Exception as error:  # noqa: BLE001 - executor surface is duck-typed
+    except Exception as error:  # noqa: BLE001  # pylint: disable=broad-exception-caught
         return _status(artifact, "failed", error=str(error))
     return _from_receipt(artifact, receipt)
 
