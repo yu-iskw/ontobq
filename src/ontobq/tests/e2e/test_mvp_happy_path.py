@@ -69,8 +69,11 @@ def test_read_clients_resolve_to_the_gated_project(e2e_live: LiveE2E) -> None:
     cannot silently run against (and bill) a different project.
     """
 
-    assert e2e_live.inspector._client.project == e2e_live.project
-    assert e2e_live.query_executor._client.project == e2e_live.project
+    # pylint: disable=protected-access
+    inspector_client = e2e_live.inspector._client
+    executor_client = e2e_live.query_executor._client
+    assert inspector_client.project == e2e_live.project  # pyright: ignore[reportAttributeAccessIssue]
+    assert executor_client.project == e2e_live.project  # pyright: ignore[reportAttributeAccessIssue]
     assert e2e_live.mutator.identity.project == e2e_live.project
 
 
