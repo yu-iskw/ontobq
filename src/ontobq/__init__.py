@@ -56,6 +56,7 @@ from ontobq.naming import (
     to_key_column,
 )
 from ontobq.schema import API_VERSION, KIND, SCHEMA_ID, load_v1alpha1_schema
+from ontobq.semantics import validate_semantics
 from ontobq.validate import (
     IntegrityExecutionError,
     IntegrityQuery,
@@ -109,4 +110,5 @@ __all__ = [
     "to_key_column",
     "validate_bigquery_metadata",
     "validate_integrity",
+    "validate_semantics",
 ]

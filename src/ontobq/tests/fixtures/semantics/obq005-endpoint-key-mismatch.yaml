@@ -1,0 +1,59 @@
+apiVersion: ontobq.dev/v1alpha1
+kind: Domain
+
+metadata:
+  name: commerce
+
+spec:
+  bigquery:
+    project: my-project
+    dataset: semantic
+    graph: commerce_graph
+
+  entities:
+    Customer:
+      key: [tenantId, id]
+      properties:
+        tenantId:
+          type: string
+          nullable: false
+        id:
+          type: string
+          nullable: false
+      mapping:
+        bigquery:
+          source: my-project.raw.customers
+          properties:
+            tenantId:
+              column: tenant_id
+            id:
+              column: customer_id
+
+    Order:
+      key: [id]
+      properties:
+        id:
+          type: string
+          nullable: false
+      mapping:
+        bigquery:
+          source: my-project.raw.orders
+          properties:
+            id:
+              column: order_id
+
+  relationships:
+    PLACED:
+      from: Customer
+      to: Order
+      mapping:
+        bigquery:
+          source: my-project.raw.orders
+          key:
+            - column: order_id
+          from:
+            id:
+              column: customer_id
+          to:
+            id:
+              column: order_id
