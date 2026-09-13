@@ -55,6 +55,16 @@ from ontobq.naming import (
     normalize_view_segment,
     to_key_column,
 )
+from ontobq.orchestrate import (
+    DeploymentPlan,
+    DomainIdentity,
+    PlanArtifact,
+    PlanBlockedError,
+    ValidationResult,
+    ValidationSummary,
+    build_plan,
+    validate_domain,
+)
 from ontobq.schema import API_VERSION, KIND, SCHEMA_ID, load_v1alpha1_schema
 from ontobq.semantics import validate_semantics
 from ontobq.validate import (
@@ -77,8 +87,10 @@ __all__ = [
     "BigQueryTarget",
     "ColumnMapping",
     "ColumnSnapshot",
+    "DeploymentPlan",
     "Diagnostic",
     "Domain",
+    "DomainIdentity",
     "DomainLoadError",
     "EntityDefinition",
     "ExpressionMapping",
@@ -89,6 +101,8 @@ __all__ = [
     "IntegrityReport",
     "MappingViewArtifact",
     "Metadata",
+    "PlanArtifact",
+    "PlanBlockedError",
     "PropertyDefinition",
     "PropertyGraphArtifact",
     "PropertyType",
@@ -97,6 +111,9 @@ __all__ = [
     "ScalarDryRunResult",
     "Severity",
     "SourceSnapshot",
+    "ValidationResult",
+    "ValidationSummary",
+    "build_plan",
     "compile_integrity_queries",
     "compile_mapping_views",
     "compile_property_graph",
@@ -109,6 +126,7 @@ __all__ = [
     "normalize_view_segment",
     "to_key_column",
     "validate_bigquery_metadata",
+    "validate_domain",
     "validate_integrity",
     "validate_semantics",
 ]

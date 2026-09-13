@@ -1,0 +1,38 @@
+{
+  "artifacts": [
+    {
+      "dependencies": [],
+      "kind": "mapping_view",
+      "semantic_name": "Customer",
+      "target_name": "my-project.semantic._ontobq_commerce_n_customer"
+    },
+    {
+      "dependencies": [],
+      "kind": "mapping_view",
+      "semantic_name": "Order",
+      "target_name": "my-project.semantic._ontobq_commerce_n_order"
+    },
+    {
+      "dependencies": [],
+      "kind": "mapping_view",
+      "semantic_name": "PLACED",
+      "target_name": "my-project.semantic._ontobq_commerce_e_placed"
+    },
+    {
+      "dependencies": [
+        "my-project.semantic._ontobq_commerce_n_customer",
+        "my-project.semantic._ontobq_commerce_n_order",
+        "my-project.semantic._ontobq_commerce_e_placed"
+      ],
+      "kind": "property_graph",
+      "semantic_name": "commerce",
+      "target_name": "my-project.semantic.commerce_graph"
+    }
+  ],
+  "domain_identity": {
+    "dataset": "semantic",
+    "graph": "commerce_graph",
+    "name": "commerce",
+    "project": "my-project"
+  }
+}

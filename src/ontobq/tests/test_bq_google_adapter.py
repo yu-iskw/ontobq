@@ -14,6 +14,7 @@ def test_google_adapter_contains_dry_run_config() -> None:
     assert "google.cloud" in text
     assert "QueryJobConfig" in text
     assert "GoogleBigQueryInspector" in text
+    assert "GoogleBigQueryReadExecutor" in text
     assert "CREATE OR REPLACE VIEW" not in text
     assert "PROPERTY GRAPH" not in text
 
