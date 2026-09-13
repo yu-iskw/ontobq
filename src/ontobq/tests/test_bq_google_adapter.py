@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import ontobq
@@ -131,19 +132,13 @@ def test_mutation_executor_sdk_error_returns_receipt() -> None:
     assert receipt.error == "ddl failed"
 
 
-class _ProjectRecordingSdk:
-    """Duck-typed SDK: records Client(project=...)."""
+def test_mutation_live_client_uses_configured_project() -> None:
+    recorded: list[str] = []
 
-    def __init__(self) -> None:
-        self.project: str | None = None
-        self.Client = self._client
-
-    def _client(self, project: str | None = None) -> object:
-        self.project = project
+    def factory(project: str) -> object:
+        recorded.append(project)
         return object()
 
-
-def test_mutation_live_client_uses_configured_project() -> None:
-    sdk = _ProjectRecordingSdk()
+    sdk = SimpleNamespace(Client=factory)
     _client_for_project(sdk, "my-project")
-    assert sdk.project == "my-project"
+    assert recorded == ["my-project"]
