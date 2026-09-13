@@ -1,0 +1,40 @@
+# TEMPLATE — substitute ${ONTOBQ_E2E_PROJECT} ${ONTOBQ_E2E_DATASET} ${ONTOBQ_E2E_GRAPH}
+# OBQ102: mapped column country_code is not on e2e_customers (happy-path seed).
+# Minimal Domain so layer 3 fails before mutation. Do not apply this variant.
+# Expected: diagnostics[].code == "OBQ102"
+# Path: spec.entities.Customer.mapping.bigquery.properties.country
+apiVersion: ontobq.dev/v1alpha1
+kind: Domain
+
+metadata:
+  name: commerce_e2e
+  displayName: Commerce E2E OBQ102
+  description: Negative — missing source column.
+
+spec:
+  bigquery:
+    project: ${ONTOBQ_E2E_PROJECT}
+    dataset: ${ONTOBQ_E2E_DATASET}
+    graph: ${ONTOBQ_E2E_GRAPH}
+
+  entities:
+    Customer:
+      key: [id]
+      properties:
+        id:
+          type: string
+          nullable: false
+        name:
+          type: string
+        country:
+          type: string
+      mapping:
+        bigquery:
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_customers
+          properties:
+            id:
+              column: customer_id
+            name:
+              column: customer_name
+            country:
+              column: country_code

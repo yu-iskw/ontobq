@@ -50,10 +50,16 @@ format:
 dead-code vulture:
 	uv run vulture
 
-# Run unit tests with coverage (pytest-cov / coverage.py).
+# Run unit tests with coverage (pytest-cov / coverage.py). Skips live BigQuery E2E.
 .PHONY: test coverage
 test coverage:
 	bash ./dev/test_python.sh
+
+# Live BigQuery MVP acceptance. Requires ONTOBQ_E2E=1 and allowlisted project/dataset.
+# See src/ontobq/tests/e2e/README.md. Never run against an unapproved project.
+.PHONY: test-e2e
+test-e2e:
+	uv run pytest -v -s -m e2e src/ontobq/tests/e2e
 
 # Run local CodeQL analysis.
 .PHONY: codeql

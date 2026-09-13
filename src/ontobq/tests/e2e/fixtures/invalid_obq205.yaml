@@ -1,0 +1,84 @@
+# TEMPLATE — substitute ${ONTOBQ_E2E_PROJECT} ${ONTOBQ_E2E_DATASET} ${ONTOBQ_E2E_GRAPH}
+# OBQ205: PLACED from-endpoint customer_id does not exist on e2e_customers.
+# Order + PLACED share e2e_orders_obq205 (unique order_id → no OBQ204/206 same-table).
+# Do not apply this variant.
+# Expected: diagnostics[].code == "OBQ205"
+# Path: spec.relationships.PLACED.mapping.bigquery.from
+apiVersion: ontobq.dev/v1alpha1
+kind: Domain
+
+metadata:
+  name: commerce_e2e
+  displayName: Commerce E2E OBQ205
+  description: Negative — orphan relationship source endpoint.
+
+spec:
+  bigquery:
+    project: ${ONTOBQ_E2E_PROJECT}
+    dataset: ${ONTOBQ_E2E_DATASET}
+    graph: ${ONTOBQ_E2E_GRAPH}
+
+  entities:
+    Customer:
+      key: [id]
+      properties:
+        id:
+          type: string
+          nullable: false
+        name:
+          type: string
+        country:
+          type: string
+      mapping:
+        bigquery:
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_customers
+          properties:
+            id:
+              column: customer_id
+            name:
+              column: customer_name
+            country:
+              column: country
+
+    Order:
+      key: [id]
+      properties:
+        id:
+          type: string
+          nullable: false
+        createdAt:
+          type: timestamp
+        status:
+          type: string
+      mapping:
+        bigquery:
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_orders_obq205
+          properties:
+            id:
+              column: order_id
+            createdAt:
+              expression: TIMESTAMP(created_at)
+            status:
+              column: status
+
+  relationships:
+    PLACED:
+      from: Customer
+      to: Order
+      properties:
+        placedAt:
+          type: timestamp
+      mapping:
+        bigquery:
+          source: ${ONTOBQ_E2E_PROJECT}.${ONTOBQ_E2E_DATASET}.e2e_orders_obq205
+          key:
+            - column: order_id
+          from:
+            id:
+              column: customer_id
+          to:
+            id:
+              column: order_id
+          properties:
+            placedAt:
+              expression: TIMESTAMP(created_at)

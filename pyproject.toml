@@ -59,6 +59,9 @@ ontobq = "ontobq.cli:main"
 
 [tool.pytest.ini_options]
 testpaths = ["src/ontobq/tests"]
+markers = [
+  "e2e: live BigQuery MVP acceptance (requires ONTOBQ_E2E=1 and an allowlisted project)",
+]
 
 [dependency-groups]
 dev = [
