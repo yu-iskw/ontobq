@@ -21,11 +21,12 @@ from typing import TYPE_CHECKING, Any, cast
 
 from ontobq.bigquery.inspector import ClientInspector, SdkShapedClient
 from ontobq.bq.executor import QueryEstimate
+from ontobq.bq.mutator import MutationIdentity, MutationReceipt
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
-__all__ = ["GoogleBigQueryInspector", "GoogleBigQueryReadExecutor"]
+__all__ = ["GoogleBigQueryInspector", "GoogleBigQueryReadExecutor", "GoogleMutationExecutor"]
 
 
 def _load_bigquery() -> Any:
@@ -100,3 +101,54 @@ class GoogleBigQueryReadExecutor:
             raise ValueError("max_rows must be >= 0")
         job = self._client.query(sql)
         return _rows_from_job(job.result(), max_rows)
+
+
+def _optional_job_id(job: object) -> str | None:
+    job_id = getattr(job, "job_id", None)
+    if job_id is None:
+        return None
+    return str(job_id)
+
+
+def _wait_for_job(job: object) -> None:
+    result_fn = getattr(job, "result", None)
+    if callable(result_fn):
+        result_fn()
+
+
+def _client_for_project(sdk: Any, project: str) -> Any:
+    return sdk.Client(project=project)
+
+
+class GoogleMutationExecutor:
+    """DDL executor backed by ``google.cloud.bigquery.Client``. Success is always applied."""
+
+    def __init__(
+        self,
+        *,
+        project: str,
+        dataset: str,
+        client: object | None = None,
+    ) -> None:
+        self._identity = MutationIdentity(project=project, dataset=dataset)
+        if client is not None:
+            self._client: Any = client
+            return
+        sdk = _load_bigquery()
+        self._client = _client_for_project(sdk, project)
+
+    @property
+    def identity(self) -> MutationIdentity:
+        return self._identity
+
+    def execute_ddl(self, sql: str, *, target_name: str) -> MutationReceipt:
+        del target_name
+        try:
+            job = self._client.query(sql)
+        except Exception as error:  # noqa: BLE001  # pylint: disable=broad-exception-caught
+            return MutationReceipt(error=str(error))
+        try:
+            _wait_for_job(job)
+        except Exception as error:  # noqa: BLE001  # pylint: disable=broad-exception-caught
+            return MutationReceipt(job_id=_optional_job_id(job), error=str(error))
+        return MutationReceipt(job_id=_optional_job_id(job))

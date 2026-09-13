@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from ontobq.diagnostics import Diagnostic
+    from ontobq.orchestrate.apply import ApplyResult, ArtifactApplyStatus
     from ontobq.orchestrate.plan import DeploymentPlan, PlanArtifact, ValidationSummary
     from ontobq.orchestrate.validate import ValidationResult
 
@@ -173,3 +174,40 @@ def write_sql_directory(plan: DeploymentPlan, directory: Path) -> None:
         (directory / f"{unqualified_target(artifact.target_name)}.sql").write_text(
             sql, encoding="utf-8"
         )
+
+
+def format_apply_human(result: ApplyResult) -> str:
+    """Refusal reasons, or one ``target status`` line per artifact."""
+
+    if result.refused:
+        lines = ("apply refused", *result.refusal_reasons)
+        return "\n".join(lines) + "\n"
+    return "\n".join(_apply_status_line(item) for item in result.artifacts) + "\n"
+
+
+def _apply_status_line(item: ArtifactApplyStatus) -> str:
+    if item.error:
+        return f"{item.target_name} {item.status} {item.error}"
+    return f"{item.target_name} {item.status}"
+
+
+def apply_payload(result: ApplyResult) -> dict[str, object]:
+    """JSON object for ``ontobq apply --format json``."""
+
+    return {
+        "ok": result.ok,
+        "refused": result.refused,
+        "refusal_reasons": list(result.refusal_reasons),
+        "artifacts": [_apply_artifact_payload(item) for item in result.artifacts],
+    }
+
+
+def _apply_artifact_payload(item: ArtifactApplyStatus) -> dict[str, object]:
+    return {
+        "target_name": item.target_name,
+        "kind": item.kind,
+        "semantic_name": item.semantic_name,
+        "status": item.status,
+        "job_id": item.job_id,
+        "error": item.error,
+    }

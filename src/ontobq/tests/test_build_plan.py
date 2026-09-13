@@ -242,8 +242,3 @@ def test_plan_cli_json_omits_sql_without_emit(capsys: pytest.CaptureFixture[str]
     assert payload["ok"] is True
     assert "sql" not in payload["artifacts"][0]
     assert payload["artifacts"][0]["content_hash"]
-
-
-def test_apply_subcommand_is_absent() -> None:
-    with pytest.raises(SystemExit):
-        main(["apply", str(_COMMERCE)])

@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Read-only validate/plan orchestration. Owns sequencing, not OBQ rules or SQL."""
+"""Validate/plan/apply orchestration. Owns sequencing, not OBQ rules or SQL."""
 
+from ontobq.orchestrate.apply import ApplyResult, ArtifactApplyStatus, apply_plan
 from ontobq.orchestrate.plan import (
     DeploymentPlan,
     DomainIdentity,
@@ -38,12 +39,15 @@ __all__ = [
     "LAYER_METADATA",
     "LAYER_SEMANTICS",
     "USAGE_CODE",
+    "ApplyResult",
+    "ArtifactApplyStatus",
     "DeploymentPlan",
     "DomainIdentity",
     "PlanArtifact",
     "PlanBlockedError",
     "ValidationResult",
     "ValidationSummary",
+    "apply_plan",
     "build_plan",
     "validate_domain",
 ]

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Read-only BigQuery query adapters for data-integrity validation."""
+"""BigQuery query and mutation adapters."""
 
 from ontobq.bq.executor import (
     BigQueryReadExecutor,
@@ -20,10 +20,14 @@ from ontobq.bq.executor import (
     FakeQueryCall,
     QueryEstimate,
 )
+from ontobq.bq.mutator import MutationExecutor, MutationIdentity, MutationReceipt
 
 __all__ = [
     "BigQueryReadExecutor",
     "FakeBigQueryReadExecutor",
     "FakeQueryCall",
+    "MutationExecutor",
+    "MutationIdentity",
+    "MutationReceipt",
     "QueryEstimate",
 ]
